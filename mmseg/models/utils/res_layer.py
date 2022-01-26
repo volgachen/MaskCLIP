@@ -37,6 +37,7 @@ class ResLayer(Sequential):
                  norm_cfg=dict(type='BN'),
                  multi_grid=None,
                  contract_dilation=False,
+                 style='pytorch',
                  **kwargs):
         self.block = block
 
@@ -46,12 +47,16 @@ class ResLayer(Sequential):
             conv_stride = stride
             if avg_down:
                 conv_stride = 1
-                downsample.append(
-                    nn.AvgPool2d(
-                        kernel_size=stride,
-                        stride=stride,
-                        ceil_mode=True,
-                        count_include_pad=False))
+                if style == 'clip':
+                    downsample.append(
+                        nn.AvgPool2d(kernel_size=stride))
+                else:
+                    downsample.append(
+                        nn.AvgPool2d(
+                            kernel_size=stride,
+                            stride=stride,
+                            ceil_mode=True,
+                            count_include_pad=False))
             downsample.extend([
                 build_conv_layer(
                     conv_cfg,
@@ -81,6 +86,7 @@ class ResLayer(Sequential):
                 downsample=downsample,
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
+                style=style,
                 **kwargs))
         inplanes = planes * block.expansion
         for i in range(1, num_blocks):

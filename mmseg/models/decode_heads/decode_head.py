@@ -69,6 +69,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
                  ignore_index=255,
                  sampler=None,
                  align_corners=False,
+                 freeze=False,
                  init_cfg=dict(
                      type='Normal', std=0.01, override=dict(name='conv_seg'))):
         super(BaseDecodeHead, self).__init__(init_cfg)
@@ -99,12 +100,14 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
         else:
             self.sampler = None
 
-        self.conv_seg = nn.Conv2d(channels, num_classes, kernel_size=1)
+        if channels > 0:
+            self.conv_seg = nn.Conv2d(channels, num_classes, kernel_size=1)
         if dropout_ratio > 0:
             self.dropout = nn.Dropout2d(dropout_ratio)
         else:
             self.dropout = None
         self.fp16_enabled = False
+        self.freeze = freeze
 
     def extra_repr(self):
         """Extra repr."""
@@ -177,6 +180,19 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
             inputs = inputs[self.in_index]
 
         return inputs
+    
+    def _freeze(self):
+        """Freeze params and norm stats."""
+        if self.freeze:
+            for m in self.modules():
+                m.eval()
+                for param in m.parameters():
+                    param.requires_grad = False
+
+    def train(self, mode=True):
+        super(BaseDecodeHead, self).train(mode)
+        if mode:
+            self._freeze()
 
     @auto_fp16()
     @abstractmethod

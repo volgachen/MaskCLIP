@@ -8,6 +8,7 @@ from mmseg.ops import resize
 from .. import builder
 from ..builder import SEGMENTORS
 from .base import BaseSegmentor
+from ..decode_heads import DenseClipPlusHead
 
 
 @SEGMENTORS.register_module()
@@ -27,7 +28,8 @@ class EncoderDecoder(BaseSegmentor):
                  train_cfg=None,
                  test_cfg=None,
                  pretrained=None,
-                 init_cfg=None):
+                 init_cfg=None,
+                 feed_img_to_decode_head=False):
         super(EncoderDecoder, self).__init__(init_cfg)
         if pretrained is not None:
             assert backbone.get('pretrained') is None, \
@@ -41,6 +43,7 @@ class EncoderDecoder(BaseSegmentor):
 
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
+        self.feed_img_to_decode_head = feed_img_to_decode_head
 
         assert self.with_decode_head
 
@@ -79,13 +82,16 @@ class EncoderDecoder(BaseSegmentor):
             align_corners=self.align_corners)
         return out
 
-    def _decode_head_forward_train(self, x, img_metas, gt_semantic_seg):
+    def _decode_head_forward_train(self, x, img_metas, gt_semantic_seg, img=None):
         """Run forward function and calculate loss for decode head in
         training."""
         losses = dict()
-        loss_decode = self.decode_head.forward_train(x, img_metas,
-                                                     gt_semantic_seg,
-                                                     self.train_cfg)
+        if self.feed_img_to_decode_head:
+            loss_decode = self.decode_head.forward_train(x, img_metas, gt_semantic_seg,
+                                                            self.train_cfg, img)
+        else:
+            loss_decode = self.decode_head.forward_train(x, img_metas, gt_semantic_seg,
+                                                            self.train_cfg)
 
         losses.update(add_prefix(loss_decode, 'decode'))
         return losses
@@ -140,8 +146,10 @@ class EncoderDecoder(BaseSegmentor):
 
         losses = dict()
 
-        loss_decode = self._decode_head_forward_train(x, img_metas,
-                                                      gt_semantic_seg)
+        if self.feed_img_to_decode_head:
+            loss_decode = self._decode_head_forward_train(x, img_metas, gt_semantic_seg, img)
+        else:
+            loss_decode = self._decode_head_forward_train(x, img_metas, gt_semantic_seg)
         losses.update(loss_decode)
 
         if self.with_auxiliary_head:

@@ -105,11 +105,13 @@ class LoadAnnotations(object):
     def __init__(self,
                  reduce_zero_label=False,
                  file_client_args=dict(backend='disk'),
-                 imdecode_backend='pillow'):
+                 imdecode_backend='pillow',
+                 suppress_labels=[]):
         self.reduce_zero_label = reduce_zero_label
         self.file_client_args = file_client_args.copy()
         self.file_client = None
         self.imdecode_backend = imdecode_backend
+        self.suppress_labels = suppress_labels
 
     def __call__(self, results):
         """Call function to load multiple types annotations.
@@ -120,6 +122,11 @@ class LoadAnnotations(object):
         Returns:
             dict: The dict contains loaded semantic segmentation annotations.
         """
+        if results['ann_info']['seg_map'] is None:
+            ori_shape = results['ori_shape']
+            results['gt_semantic_seg'] = np.ones(ori_shape[:2], dtype=np.int64) * -1
+            results['seg_fields'].append('gt_semantic_seg')
+            return results
 
         if self.file_client is None:
             self.file_client = mmcv.FileClient(**self.file_client_args)
@@ -132,7 +139,7 @@ class LoadAnnotations(object):
         img_bytes = self.file_client.get(filename)
         gt_semantic_seg = mmcv.imfrombytes(
             img_bytes, flag='unchanged',
-            backend=self.imdecode_backend).squeeze().astype(np.uint8)
+            backend=self.imdecode_backend).squeeze().astype(np.int64)
         # modify if custom classes
         if results.get('label_map', None) is not None:
             for old_id, new_id in results['label_map'].items():
@@ -143,6 +150,11 @@ class LoadAnnotations(object):
             gt_semantic_seg[gt_semantic_seg == 0] = 255
             gt_semantic_seg = gt_semantic_seg - 1
             gt_semantic_seg[gt_semantic_seg == 254] = 255
+        # ignore certain class ids during training for zero-shot settings
+        if len(self.suppress_labels) > 0:
+            for i in self.suppress_labels:
+                gt_semantic_seg[gt_semantic_seg == i] = -1
+
         results['gt_semantic_seg'] = gt_semantic_seg
         results['seg_fields'].append('gt_semantic_seg')
         return results

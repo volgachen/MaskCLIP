@@ -7,6 +7,7 @@ from mmcv.utils import deprecated_api_warning, is_tuple_of
 from numpy import random
 
 from ..builder import PIPELINES
+from .corruptions import corrupt
 
 
 @PIPELINES.register_module()
@@ -1308,4 +1309,25 @@ class RandomMosaic(object):
         repr_str += f'center_ratio_range={self.center_ratio_range}, '
         repr_str += f'pad_val={self.pad_val}, '
         repr_str += f'seg_pad_val={self.pad_val})'
+        return repr_str
+
+
+@PIPELINES.register_module()
+class Corrupt(object):
+    def __init__(self, name, level):
+        self.name = name
+        self.level = level
+
+    def __call__(self, results):
+        img = results['img']
+        assert len(img.shape) == 3
+        
+        results['img'] = corrupt(img, severity=self.level, corruption_name=self.name)
+        
+        return results
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += (f'(name={self.name}, '
+                     f'level={self.level})')
         return repr_str

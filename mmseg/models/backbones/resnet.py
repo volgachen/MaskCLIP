@@ -119,7 +119,7 @@ class Bottleneck(BaseModule):
                  plugins=None,
                  init_cfg=None):
         super(Bottleneck, self).__init__(init_cfg)
-        assert style in ['pytorch', 'caffe']
+        assert style in ['pytorch', 'caffe', 'clip']
         assert dcn is None or isinstance(dcn, dict)
         assert plugins is None or isinstance(plugins, list)
         if plugins is not None:
@@ -157,6 +157,10 @@ class Bottleneck(BaseModule):
         if self.style == 'pytorch':
             self.conv1_stride = 1
             self.conv2_stride = stride
+        elif self.style == 'clip':
+            self.conv1_stride = 1
+            self.conv2_stride = 1
+            self.avgpool = nn.AvgPool2d(stride) if stride > 1 else nn.Identity()
         else:
             self.conv1_stride = stride
             self.conv2_stride = 1
@@ -280,6 +284,8 @@ class Bottleneck(BaseModule):
             out = self.conv2(out)
             out = self.norm2(out)
             out = self.relu(out)
+            if self.style == 'clip':
+                out = self.avgpool(out)
 
             if self.with_plugins:
                 out = self.forward_plugin(out, self.after_conv2_plugin_names)
@@ -390,7 +396,9 @@ class ResNet(BaseModule):
         34: (BasicBlock, (3, 4, 6, 3)),
         50: (Bottleneck, (3, 4, 6, 3)),
         101: (Bottleneck, (3, 4, 23, 3)),
-        152: (Bottleneck, (3, 8, 36, 3))
+        152: (Bottleneck, (3, 8, 36, 3)),
+        '50x4': (Bottleneck, (4, 6, 10, 6)),
+        '50x16': (Bottleneck, (6, 8, 18, 8)),
     }
 
     def __init__(self,
@@ -635,7 +643,10 @@ class ResNet(BaseModule):
                 self.norm_cfg, stem_channels, postfix=1)
             self.add_module(self.norm1_name, norm1)
             self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        if self.style == 'clip':
+            self.stem_pool = nn.AvgPool2d(kernel_size=2)
+        else:
+            self.stem_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
     def _freeze_stages(self):
         """Freeze stages param and norm stats."""
@@ -664,7 +675,7 @@ class ResNet(BaseModule):
             x = self.conv1(x)
             x = self.norm1(x)
             x = self.relu(x)
-        x = self.maxpool(x)
+        x = self.stem_pool(x)
         outs = []
         for i, layer_name in enumerate(self.res_layers):
             res_layer = getattr(self, layer_name)
@@ -712,3 +723,12 @@ class ResNetV1d(ResNet):
     def __init__(self, **kwargs):
         super(ResNetV1d, self).__init__(
             deep_stem=True, avg_down=True, **kwargs)
+
+@BACKBONES.register_module()
+class ResNetClip(ResNet):
+
+    def __init__(self, **kwargs):
+        if 'style' in kwargs:
+            kwargs.pop('style')
+        super(ResNetClip, self).__init__(
+            deep_stem=True, avg_down=True, style='clip', **kwargs)
