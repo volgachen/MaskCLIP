@@ -34,8 +34,8 @@ Contrastive Language-Image Pre-training (CLIP) has made a remarkable breakthroug
 
 | Method     | CLIP Model | Target Model          | Crop Size | Lr schd | mIoU | config                                                                          |
 | ---------- | ---------- | --------------------- | --------- | --------|----: | --------------------------------------------------------------------------------|
-| DenseCLIP+ | R-50       | DeepLabv2-R-101-d8    | 512x512   | 8000    |  8.3 | [config](anno_free/denseclip_plus_r50_deeplabv2_r101-d8_512x512_8k_ade20k.py)   |
-| DenseCLIP+ | R-50x16    | DeepLabv2-R-101-d8    | 512x512   | 8000    | 10.5 | [config](anno_free/denseclip_plus_r50x16_deeplabv2_r101-d8_512x512_8k_ade20k.py)|
+| DenseCLIP+ | R-50       | DeepLabv2-R-101-d8    | 512x512   | 8000    | 10.6 | [config](anno_free/denseclip_plus_r50_deeplabv2_r101-d8_512x512_8k_ade20k.py)   |
+| DenseCLIP+ | R-50x16    | DeepLabv2-R-101-d8    | 512x512   | 8000    | 13.5 | [config](anno_free/denseclip_plus_r50x16_deeplabv2_r101-d8_512x512_8k_ade20k.py)|
 
 
 ## Results and models of zero-shot segmentation
