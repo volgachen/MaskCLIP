@@ -13,7 +13,7 @@ from .decode_head import BaseDecodeHead
 class DenseClipHead(BaseDecodeHead):
 
     def __init__(self, text_categories, text_channels, text_embeddings_path,
-                    visual_projs_path, **kwargs):
+                    visual_projs_path, vit=False, **kwargs):
         super(DenseClipHead, self).__init__(**kwargs)
 
         self.text_categories = text_categories
@@ -23,9 +23,13 @@ class DenseClipHead(BaseDecodeHead):
 
         self.register_buffer('text_embeddings', torch.randn(text_categories, text_channels))
         
-        self.v_proj = nn.Conv2d(self.in_channels, self.in_channels, 1)
-        self.c_proj = nn.Conv2d(self.in_channels, text_channels, 1)
-        
+        self.vit = vit
+        if vit:
+            self.proj = nn.Conv2d(self.in_channels, text_channels, 1, bias=False)
+        else:
+            self.v_proj = nn.Conv2d(self.in_channels, self.in_channels, 1)
+            self.c_proj = nn.Conv2d(self.in_channels, text_channels, 1)
+
         self.load_text_embeddings()
         self.load_visual_projs()
 
@@ -41,7 +45,8 @@ class DenseClipHead(BaseDecodeHead):
 
     def load_visual_projs(self):
         loaded = torch.load(self.visual_projs_path, map_location='cuda')
-        for attr in ['v_proj', 'c_proj']:
+        attrs = ['proj'] if self.vit else ['v_proj', 'c_proj']
+        for attr in attrs:
             current_attr = getattr(self, attr)
             state_dict = loaded[attr]
             for key in state_dict:
@@ -52,8 +57,11 @@ class DenseClipHead(BaseDecodeHead):
     
     def forward(self, inputs):
         x = self._transform_inputs(inputs)
-        v = self.v_proj(x)
-        feat = self.c_proj(v)
+        if self.vit:
+            feat = self.proj(x)
+        else:
+            v = self.v_proj(x)
+            feat = self.c_proj(v)
         output = self.cls_seg(feat)
         return output
 

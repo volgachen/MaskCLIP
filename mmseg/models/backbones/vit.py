@@ -11,6 +11,7 @@ from mmcv.cnn.utils.weight_init import (constant_init, kaiming_init,
 from mmcv.runner import BaseModule, ModuleList, _load_checkpoint
 from torch.nn.modules.batchnorm import _BatchNorm
 from torch.nn.modules.utils import _pair as to_2tuple
+import torch.nn.functional as F
 
 from mmseg.ops import resize
 from mmseg.utils import get_root_logger
@@ -89,8 +90,16 @@ class TransformerEncoderLayer(BaseModule):
     def norm2(self):
         return getattr(self, self.norm2_name)
 
-    def forward(self, x):
-        x = self.attn(self.norm1(x), identity=x)
+    def forward(self, x, attn2ffn=False):
+        if attn2ffn:
+            identity = x
+            x = self.norm1(x)
+            x = F.linear(x, self.attn.attn.in_proj_weight, self.attn.attn.in_proj_bias)
+            x = x[:, :, -x.shape[2]//3:]
+            x = F.linear(x, self.attn.attn.out_proj.weight, self.attn.attn.out_proj.bias)
+            x += identity
+        else:
+            x = self.attn(self.norm1(x), identity=x)
         x = self.ffn(self.norm2(x), identity=x)
         return x
 
@@ -149,6 +158,7 @@ class VisionTransformer(BaseModule):
     def __init__(self,
                  img_size=224,
                  patch_size=16,
+                 patch_bias=True,
                  in_channels=3,
                  embed_dims=768,
                  num_layers=12,
@@ -164,7 +174,9 @@ class VisionTransformer(BaseModule):
                  norm_cfg=dict(type='LN'),
                  act_cfg=dict(type='GELU'),
                  patch_norm=False,
+                 pre_norm=False,
                  final_norm=False,
+                 final_attn2ffn=False,
                  interpolate_mode='bicubic',
                  num_fcs=2,
                  norm_eval=False,
@@ -209,6 +221,7 @@ class VisionTransformer(BaseModule):
             kernel_size=patch_size,
             stride=patch_size,
             padding='corner',
+            bias=patch_bias,
             norm_cfg=norm_cfg if patch_norm else None,
             init_cfg=None,
         )
@@ -252,12 +265,24 @@ class VisionTransformer(BaseModule):
                     norm_cfg=norm_cfg,
                     batch_first=True))
 
+        self.pre_norm = pre_norm
+        if pre_norm:
+            self.norm0_name, norm0 = build_norm_layer(
+                norm_cfg, embed_dims, postfix=0)
+            self.add_module(self.norm0_name, norm0)
+
         self.final_norm = final_norm
         if final_norm:
             self.norm1_name, norm1 = build_norm_layer(
                 norm_cfg, embed_dims, postfix=1)
             self.add_module(self.norm1_name, norm1)
 
+        self.final_attn2ffn = final_attn2ffn
+    
+    @property
+    def norm0(self):
+        return getattr(self, self.norm0_name)
+    
     @property
     def norm1(self):
         return getattr(self, self.norm1_name)
@@ -383,9 +408,12 @@ class VisionTransformer(BaseModule):
             # Remove class token for transformer encoder input
             x = x[:, 1:]
 
+        if self.pre_norm:
+            x = self.norm0(x)
+
         outs = []
         for i, layer in enumerate(self.layers):
-            x = layer(x)
+            x = layer(x, attn2ffn=(i==len(self.layers)-1 and self.final_attn2ffn))
             if i == len(self.layers) - 1:
                 if self.final_norm:
                     x = self.norm1(x)
