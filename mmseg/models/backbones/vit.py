@@ -176,7 +176,7 @@ class VisionTransformer(BaseModule):
                  patch_norm=False,
                  pre_norm=False,
                  final_norm=False,
-                 final_attn2ffn=False,
+                 last_attn2ffn=0,
                  interpolate_mode='bicubic',
                  num_fcs=2,
                  norm_eval=False,
@@ -277,8 +277,8 @@ class VisionTransformer(BaseModule):
                 norm_cfg, embed_dims, postfix=1)
             self.add_module(self.norm1_name, norm1)
 
-        self.final_attn2ffn = final_attn2ffn
-    
+        self.last_attn2ffn = (num_layers-last_attn2ffn)*[False] + last_attn2ffn*[True]
+
     @property
     def norm0(self):
         return getattr(self, self.norm0_name)
@@ -413,7 +413,7 @@ class VisionTransformer(BaseModule):
 
         outs = []
         for i, layer in enumerate(self.layers):
-            x = layer(x, attn2ffn=(i==len(self.layers)-1 and self.final_attn2ffn))
+            x = layer(x, attn2ffn=self.last_attn2ffn[i])
             if i == len(self.layers) - 1:
                 if self.final_norm:
                     x = self.norm1(x)
