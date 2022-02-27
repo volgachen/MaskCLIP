@@ -4,6 +4,7 @@ _base_ = [
 ]
 model = dict(
     decode_head=dict(
+        num_classes=171,
         text_categories=171, 
         text_channels=512, 
         text_embeddings_path='pretrain/stuff_ViT16_clip_text.pth',

@@ -4,6 +4,7 @@ _base_ = [
 ]
 model = dict(
     decode_head=dict(
+        num_classes=150,
         text_categories=150, 
         text_channels=1024, 
         text_embeddings_path='pretrain/ade_RN50_clip_text.pth',

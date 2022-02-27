@@ -366,8 +366,10 @@ def total_area_to_metrics(total_area_intersect,
         if metric == 'mIoU':
             iou = total_area_intersect / total_area_union
             acc = total_area_intersect / total_area_label
+            precision = total_area_intersect / total_area_pred_label
             ret_metrics['IoU'] = iou
             ret_metrics['Acc'] = acc
+            ret_metrics['Prec'] = precision
         elif metric == 'mDice':
             dice = 2 * total_area_intersect / (
                 total_area_pred_label + total_area_label)
