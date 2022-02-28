@@ -118,3 +118,5 @@ pretrain/
 
 # Pytorch
 *.pth
+
+*DS_Store*

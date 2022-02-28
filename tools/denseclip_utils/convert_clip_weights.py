@@ -83,9 +83,9 @@ if __name__ == '__main__':
                 clip_keys.append(new_key)
                 result_model['state_dict'].update({new_key: state_dict[key].float()})
 
-    # if args.backbone:
-    #     torch.save(result_model, f'pretrain/{args.model}_clip_backbone.pth')
-    # else:
-    #     torch.save(result_model, f'pretrain/{args.model}_clip_visual.pth')
-    #     all_model['clip'] = result_model['state_dict']
-    #     torch.save(all_model, 'pretrain/{}_clip_weights.pth'.format(args.model))
+    if args.backbone:
+        torch.save(result_model, f'pretrain/{args.model}_clip_backbone.pth')
+    else:
+        torch.save(result_model, f'pretrain/{args.model}_clip_visual.pth')
+        all_model['clip'] = result_model['state_dict']
+        torch.save(all_model, 'pretrain/{}_clip_weights.pth'.format(args.model))

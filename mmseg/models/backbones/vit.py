@@ -91,17 +91,21 @@ class TransformerEncoderLayer(BaseModule):
         return getattr(self, self.norm2_name)
 
     def forward(self, x, attn2ffn=False):
+        q, k = None, None
         if attn2ffn:
             identity = x
             x = self.norm1(x)
             x = F.linear(x, self.attn.attn.in_proj_weight, self.attn.attn.in_proj_bias)
-            x = x[:, :, -x.shape[2]//3:]
+            # x = x[:, :, -x.shape[2]//3:]
+            N, L, C = x.shape
+            x = x.view(N, L, 3, C//3).permute(2, 0, 1, 3).view(3*N, L, C//3)
             x = F.linear(x, self.attn.attn.out_proj.weight, self.attn.attn.out_proj.bias)
+            q, k, x = x.tensor_split(3, dim=0)
             x += identity
         else:
             x = self.attn(self.norm1(x), identity=x)
         x = self.ffn(self.norm2(x), identity=x)
-        return x
+        return x, q, k
 
 
 @BACKBONES.register_module()
@@ -176,7 +180,7 @@ class VisionTransformer(BaseModule):
                  patch_norm=False,
                  pre_norm=False,
                  final_norm=False,
-                 last_attn2ffn=0,
+                 last_attn2ffn=False,
                  interpolate_mode='bicubic',
                  num_fcs=2,
                  norm_eval=False,
@@ -277,7 +281,7 @@ class VisionTransformer(BaseModule):
                 norm_cfg, embed_dims, postfix=1)
             self.add_module(self.norm1_name, norm1)
 
-        self.last_attn2ffn = (num_layers-last_attn2ffn)*[False] + last_attn2ffn*[True]
+        self.last_attn2ffn = last_attn2ffn
 
     @property
     def norm0(self):
@@ -413,7 +417,7 @@ class VisionTransformer(BaseModule):
 
         outs = []
         for i, layer in enumerate(self.layers):
-            x = layer(x, attn2ffn=self.last_attn2ffn[i])
+            x, q, k = layer(x, attn2ffn=(self.last_attn2ffn) and i==len(self.layers)-1)
             if i == len(self.layers) - 1:
                 if self.final_norm:
                     x = self.norm1(x)
@@ -428,6 +432,11 @@ class VisionTransformer(BaseModule):
                                   C).permute(0, 3, 1, 2).contiguous()
                 if self.output_cls_token:
                     out = [out, x[:, 0]]
+                if q is not None:
+                    if self.with_cls_token:
+                        q = q[:, 1:]
+                        k = k[:, 1:]
+                    out = [out, q, k]
                 outs.append(out)
 
         return tuple(outs)
