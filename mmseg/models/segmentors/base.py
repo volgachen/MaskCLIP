@@ -213,11 +213,13 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
                     img,
                     result,
                     palette=None,
+                    classes=None,
                     win_name='',
                     show=False,
                     wait_time=0,
                     out_file=None,
-                    opacity=0.5):
+                    opacity=0.5,
+                    gt=None):
         """Draw `result` over `img`.
 
         Args:
@@ -243,6 +245,8 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         img = mmcv.imread(img)
         img = img.copy()
         seg = result[0]
+        if classes is not None:
+            self.CLASSES = classes
         if palette is None:
             if self.PALETTE is None:
                 # Get random state before set seed,
@@ -259,7 +263,7 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
             else:
                 palette = self.PALETTE
         palette = np.array(palette)
-        assert palette.shape[0] == len(self.CLASSES)
+        assert palette.shape[0] == len(self.CLASSES), '({}) vs. ({})'.format(palette.shape[0], len(self.CLASSES))
         assert palette.shape[1] == 3
         assert len(palette.shape) == 2
         assert 0 < opacity <= 1.0
@@ -270,6 +274,9 @@ class BaseSegmentor(BaseModule, metaclass=ABCMeta):
         color_seg = color_seg[..., ::-1]
 
         img = img * (1 - opacity) + color_seg * opacity
+        if gt is not None:
+            # set the ignored area to black
+            img[gt == 255, :] = np.array([0, 0, 0])
         img = img.astype(np.uint8)
         # if out_file specified, do not show image in window
         if out_file is not None:

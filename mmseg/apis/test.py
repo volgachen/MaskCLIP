@@ -10,6 +10,10 @@ from mmcv.engine import collect_results_cpu, collect_results_gpu
 from mmcv.image import tensor2imgs
 from mmcv.runner import get_dist_info
 
+import matplotlib.pyplot as plt
+import math
+from torch.utils.tensorboard import SummaryWriter
+
 
 def np2tmp(array, temp_file_name=None, tmpdir=None):
     """Save ndarray to local numpy file.
@@ -231,3 +235,102 @@ def multi_gpu_test(model,
     else:
         results = collect_results_cpu(results, len(dataset), tmpdir)
     return results
+
+
+def vis_output(model, data_loader, config_name, num_vis, class_names, 
+                        highlight_rule, black_bg):
+    model.eval()
+    dataset = data_loader.dataset
+    prog_bar = mmcv.ProgressBar(len(dataset))
+    # The pipeline about how the data_loader retrieval samples from dataset:
+    # sampler -> batch_sampler -> indices
+    # The indices are passed to dataset_fetcher to get data from dataset.
+    # data_fetcher -> collate_fn(dataset[index]) -> data_sample
+    # we use batch_sampler to get correct data idx
+    loader_indices = data_loader.batch_sampler
+
+    writer = SummaryWriter('vis/{}'.format(config_name))
+
+    if len(highlight_rule) == 0:
+        highlight_names = []
+    elif highlight_rule == 'zs5':
+        highlight_names = [10, 14, 1, 18, 8, 20, 19, 5, 9, 16]
+    else:
+        rank, splits, strategy = highlight_rule.split('_')
+        rank, splits = int(rank), int(splits)
+        all_index = list(range(len(class_names)))
+        if strategy == 'itv':
+            highlight_names = all_index[(rank-1)::splits]
+        elif strategy == 'ctn':
+            classes_per_split = len(class_names) // splits
+            highlight_names = all_index[(rank-1)*classes_per_split : rank*classes_per_split]
+
+    count = 0
+    for batch_indices, data in zip(loader_indices, data_loader):
+        img_tensor = data['img'][0]
+        img_metas = data['img_metas'][0].data[0]
+        gt = dataset.get_gt_seg_map_by_idx(batch_indices[0]) if black_bg else None
+
+        imgs = tensor2imgs(img_tensor, **img_metas[0]['img_norm_cfg'])
+        assert len(imgs) == len(img_metas)
+
+        img, img_meta = imgs[0], img_metas[0]
+
+        h, w, _ = img_meta['img_shape']
+        img_show = img[:h, :w, :]
+        ori_h, ori_w = img_meta['ori_shape'][:-1]
+        img_show = mmcv.imresize(img_show, (ori_w, ori_h))
+
+        with torch.no_grad():
+            seg_logit = model(return_loss=False, rescale=True, return_logit=True, **data)
+        seg_logit = seg_logit[0]
+        seg_pred = seg_logit.argmax(axis=0)
+        img_seg = model.module.show_result(img_show, [seg_pred], opacity=0.5,
+                                            palette=dataset.PALETTE,
+                                            classes=dataset.CLASSES, gt=gt)
+
+        filename = img_metas[0]['ori_filename']
+        # seg_logit = seg_logit.softmax(dim=1)
+        seg_logit = seg_logit == seg_logit.max(axis=0, keepdims=True)
+        fig = activation_matplotlib(seg_logit, img_show, img_seg, class_names, highlight_names)
+        writer.add_figure(filename, fig)
+
+        batch_size = img_tensor.size(0)
+        for _ in range(batch_size):
+            prog_bar.update()
+
+        count += 1
+        if count == num_vis:
+            break
+
+
+def activation_matplotlib(seg_logit, image, image_seg, class_names, highlight_names):
+    if len(class_names) + 1 == seg_logit.shape[0]:
+        class_names = ['background'] + class_names
+    total = len(class_names)+1 if image_seg is None else len(class_names)+2
+    row, col = math.ceil((total)/5), 5
+    fig = plt.figure(figsize=(6*col, 3*row))
+    count, class_idx = 0, 0
+    for _ in range(row):
+        for _ in range(col):
+            if count == 0:
+                ax = fig.add_subplot(row, col, count+1, xticks=[], yticks=[], title='image')
+                plt.imshow(image[..., ::-1])
+                count += 1
+                if image_seg is not None:
+                    ax = fig.add_subplot(row, col, count+1, xticks=[], yticks=[], title='seg')
+                    plt.imshow(image_seg[..., ::-1])
+                    count += 1
+            
+            if count == total:
+                return fig
+
+            ax = fig.add_subplot(row, col, count+1, xticks=[], yticks=[], title=class_names[class_idx])
+            if class_idx in highlight_names:
+                ax.set_title(class_names[class_idx], color='r')
+            plt.imshow(seg_logit[class_idx])
+            count += 1
+            class_idx += 1
+    
+    # fig.tight_layout()
+    return fig

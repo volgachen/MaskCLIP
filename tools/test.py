@@ -13,7 +13,7 @@ from mmcv.runner import (get_dist_info, init_dist, load_checkpoint,
                          wrap_fp16_model)
 from mmcv.utils import DictAction
 
-from mmseg.apis import multi_gpu_test, single_gpu_test
+from mmseg.apis import multi_gpu_test, single_gpu_test, vis_output
 from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.models import build_segmentor
 
@@ -45,6 +45,13 @@ def parse_args():
     parser.add_argument('--show', action='store_true', help='show results')
     parser.add_argument(
         '--show-dir', help='directory where painted images will be saved')
+    parser.add_argument('--vis-output', action='store_true', help='visualize output maps')
+    parser.add_argument('--highlight', type=str, default='',
+        help='the rule to highlight certain classes for zero-shot settings,'
+        'e.g. 1_4_itv means split #1 out of the total 4 splits and apply interval strategy'
+        '(vs. ctn for continue strategy)')
+    parser.add_argument('--num-vis', type=int, default=10, help='number of to-visualize images')
+    parser.add_argument('--black-bg', action='store_true', help='black out the background pixels with ground truth')
     parser.add_argument(
         '--gpu-collect',
         action='store_true',
@@ -110,10 +117,11 @@ def parse_args():
 def main():
     args = parse_args()
     assert args.out or args.eval or args.format_only or args.show \
-        or args.show_dir, \
+        or args.show_dir or args.vis_output, \
         ('Please specify at least one operation (save/eval/format/show the '
-         'results / save the results) with the argument "--out", "--eval"'
-         ', "--format-only", "--show" or "--show-dir"')
+         'results / visualize semantic maps) with the argument '
+         '"--out", "--eval", "--format-only", "--show" or "--show-dir", '
+         '"--vis-output"')
 
     if args.eval and args.format_only:
         raise ValueError('--eval and --format_only cannot be both specified')
@@ -224,6 +232,16 @@ def main():
 
     if not distributed:
         model = MMDataParallel(model, device_ids=[0])
+
+        if args.vis_output:
+            config_name = args.checkpoint.split('/')[-2]
+            assert 'text_embeddings_path' in cfg.model.decode_head
+            class_names = torch.load('{}.names'.format(cfg.model.decode_head.text_embeddings_path[:-4]))
+            vis_output(model, data_loader, config_name, args.num_vis,
+                        class_names, args.highlight, args.black_bg)
+            print()
+            return
+
         results = single_gpu_test(
             model,
             data_loader,

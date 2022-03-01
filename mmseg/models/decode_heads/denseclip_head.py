@@ -78,30 +78,36 @@ class DenseClipHead(BaseDecodeHead):
             v = self.v_proj(x)
             feat = self.c_proj(v)
         output = self.cls_seg(feat)
+
+        output2logits = False
         if k is not None and self.key_voting:
             output = F.softmax(output*100, dim=1)
+            output2logits = True
             N, C, H, W = output.shape
             output = output.view(N, C, -1).transpose(-2, -1)
+            # print(f'max: {output.max(dim=-1)[0]} min: {output.min(dim=-1)[0]}')
             k = k / math.sqrt(k.shape[2])
             attn = torch.bmm(k, k.transpose(-2, -1))
             attn = F.softmax(attn, dim=-1)
             output = torch.bmm(attn, output)
             output = output.transpose(-2, -1).view(N, C, H, W)
+
+        bg_output = None
+        if self.text_categories > self.num_classes:
+            bg_output, _ = torch.max(output[:, self.num_classes:], dim=1, keepdim=True)
+        elif self.conf_thresh > 0:
+            if not output2logits:
+                output = F.softmax(output*100, dim=1)
+            N, C, H, W = output.shape
+            bg_output = output.new_full((N, 1, H, W), self.conf_thresh)
+        if bg_output is not None:
+            output = torch.cat([bg_output, output[:, :self.num_classes]], dim=1)
+
         return output
 
     def cls_seg(self, feat):
         feat = feat / feat.norm(dim=1, keepdim=True)
         output = F.conv2d(feat, self.text_embeddings[:, :, None, None])
-        bg_output = None
-        if self.text_categories > self.num_classes:
-            bg_output, _ = torch.max(output[:, self.num_classes:], dim=1, keepdim=True)
-        elif self.conf_thresh > 0:
-            N, C, H, W = output.shape
-            output = F.softmax(output*100, dim=1)
-            bg_output = output.new_full((N, 1, H, W), self.conf_thresh)
-        if bg_output is not None:
-            output = torch.cat([bg_output, output[:, :self.num_classes]], dim=1)
-
         return output
 
     def forward_train(self, inputs, img_metas, gt_semantic_seg, train_cfg):
