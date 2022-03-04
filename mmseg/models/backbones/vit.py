@@ -90,22 +90,21 @@ class TransformerEncoderLayer(BaseModule):
     def norm2(self):
         return getattr(self, self.norm2_name)
 
-    def forward(self, x, attn2ffn=False):
-        q, k = None, None
-        if attn2ffn:
-            identity = x
-            x = self.norm1(x)
-            x = F.linear(x, self.attn.attn.in_proj_weight, self.attn.attn.in_proj_bias)
-            # x = x[:, :, -x.shape[2]//3:]
-            N, L, C = x.shape
-            x = x.view(N, L, 3, C//3).permute(2, 0, 1, 3).view(3*N, L, C//3)
-            x = F.linear(x, self.attn.attn.out_proj.weight, self.attn.attn.out_proj.bias)
-            q, k, x = x.tensor_split(3, dim=0)
-            x += identity
-        else:
-            x = self.attn(self.norm1(x), identity=x)
+    def forward(self, x, return_qkv=False):
+        q, k, v = None, None, None
+        if return_qkv:
+            y = self.norm1(x)
+            y = F.linear(y, self.attn.attn.in_proj_weight, self.attn.attn.in_proj_bias)
+            N, L, C = y.shape
+            y = y.view(N, L, 3, C//3).permute(2, 0, 1, 3).reshape(3*N, L, C//3)
+            y = F.linear(y, self.attn.attn.out_proj.weight, self.attn.attn.out_proj.bias)
+            q, k, v = y.tensor_split(3, dim=0)
+            v += x
+            v = self.ffn(self.norm2(v), identity=v)
+
+        x = self.attn(self.norm1(x), identity=x)
         x = self.ffn(self.norm2(x), identity=x)
-        return x, q, k
+        return x, q, k, v
 
 
 @BACKBONES.register_module()
@@ -180,7 +179,7 @@ class VisionTransformer(BaseModule):
                  patch_norm=False,
                  pre_norm=False,
                  final_norm=False,
-                 last_attn2ffn=False,
+                 return_qkv=False,
                  interpolate_mode='bicubic',
                  num_fcs=2,
                  norm_eval=False,
@@ -281,7 +280,7 @@ class VisionTransformer(BaseModule):
                 norm_cfg, embed_dims, postfix=1)
             self.add_module(self.norm1_name, norm1)
 
-        self.last_attn2ffn = last_attn2ffn
+        self.return_qkv = return_qkv
 
     @property
     def norm0(self):
@@ -417,10 +416,14 @@ class VisionTransformer(BaseModule):
 
         outs = []
         for i, layer in enumerate(self.layers):
-            x, q, k = layer(x, attn2ffn=(self.last_attn2ffn) and i==len(self.layers)-1)
             if i == len(self.layers) - 1:
+                x, q, k, v = layer(x, self.return_qkv)
                 if self.final_norm:
                     x = self.norm1(x)
+                    if v is not None:
+                        v = self.norm1(v)
+            else:
+                x, _, _, _ = layer(x)
             if i in self.out_indices:
                 if self.with_cls_token:
                     # Remove class token and reshape token for decoder head
@@ -432,11 +435,14 @@ class VisionTransformer(BaseModule):
                                   C).permute(0, 3, 1, 2).contiguous()
                 if self.output_cls_token:
                     out = [out, x[:, 0]]
-                if q is not None:
+                if self.return_qkv:
                     if self.with_cls_token:
                         q = q[:, 1:]
                         k = k[:, 1:]
-                    out = [out, q, k]
+                        v = v[:, 1:]
+                    v = v.reshape(B, hw_shape[0], hw_shape[1],
+                                  C).permute(0, 3, 1, 2).contiguous()
+                    out = [out, q, k, v]
                 outs.append(out)
 
         return tuple(outs)

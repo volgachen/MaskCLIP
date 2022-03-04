@@ -15,11 +15,12 @@ from .decode_head import BaseDecodeHead
 class DenseClipPlusHead(BaseDecodeHead):
 
     def __init__(self, decode_module_cfg, text_categories, text_channels, 
-                    text_embeddings_path, 
-                    cls_bg=False, norm_feat=False, start_self_train=(-1, -1), start_clip_guided=(-1, -1),
-                    unlabeled_cats=[], clip_unlabeled_cats=[], clip_cfg=None, clip_weights_path=None,
-                    reset_counter=False, clip_channels=None,
-                    **kwargs):
+                    text_embeddings_path, cls_bg=False, norm_feat=False, 
+                    start_self_train=(-1, -1), start_clip_guided=(-1, -1), 
+                    unlabeled_cats=[], clip_unlabeled_cats=[], clip_cfg=None,
+                    clip_weights_path=None, reset_counter=False, clip_channels=None, 
+                    vit=False, num_vote=0, vote_thresh=0., cls_thresh=0.,
+                    conf_thresh=0., **kwargs):
         super(DenseClipPlusHead, self).__init__(
             input_transform=decode_module_cfg.pop('input_transform'), **kwargs)
         self.text_categories = text_categories
@@ -48,11 +49,22 @@ class DenseClipPlusHead(BaseDecodeHead):
 
         self.register_buffer('text_embeddings', torch.randn(text_categories, text_channels))
 
+        self.vit = vit
         if self.clip_guided:
             self.clip = build_backbone(clip_cfg)
-            self.v_proj = nn.Conv2d(clip_channels, clip_channels, 1)
-            self.c_proj = nn.Conv2d(clip_channels, text_channels, 1)
-
+            self.num_vote = num_vote
+            if not isinstance(vote_thresh, list):
+                vote_thresh = [vote_thresh] * num_vote
+            self.vote_thresh = vote_thresh
+            self.cls_thresh = cls_thresh
+            self.conf_thresh = conf_thresh
+            if vit:
+                self.proj = nn.Conv2d(clip_channels, text_channels, 1, bias=False)
+            else:
+                self.q_proj = nn.Conv2d(clip_channels, clip_channels, 1)
+                self.k_proj = nn.Conv2d(clip_channels, clip_channels, 1)
+                self.v_proj = nn.Conv2d(clip_channels, clip_channels, 1)
+                self.c_proj = nn.Conv2d(clip_channels, text_channels, 1)
         if cls_bg:
             self.bg_embeddings = nn.Parameter(torch.randn(1, text_channels))
 
@@ -71,11 +83,11 @@ class DenseClipPlusHead(BaseDecodeHead):
     def load_clip_weights(self):
         loaded = torch.load(self.clip_weights_path, map_location='cuda')
         self.clip.load_state_dict(loaded['clip'])
-        for attr in ['v_proj', 'c_proj']:
+        attrs = ['proj'] if self.vit else ['q_proj', 'k_proj', 'v_proj', 'c_proj']
+        for attr in attrs:
             current_attr = getattr(self, attr)
             state_dict = loaded[attr]
             for key in state_dict:
-                # Linear to Conv2d
                 if 'weight' in key:
                     state_dict[key] = state_dict[key][:, :, None, None]
             current_attr.load_state_dict(state_dict)
@@ -86,7 +98,10 @@ class DenseClipPlusHead(BaseDecodeHead):
         super(DenseClipPlusHead, self)._freeze()
         # always freeze these modules
         if self.clip_guided:
-            for i in [self.clip, self.v_proj, self.c_proj]:
+            attrs = ['proj'] if self.vit else ['q_proj', 'k_proj', 'v_proj', 'c_proj']
+            attrs.append('clip')
+            for attr in attrs:
+                i = getattr(self, attr)
                 for m in i.modules():
                     m.eval()
                     for param in m.parameters():
@@ -148,25 +163,16 @@ class DenseClipPlusHead(BaseDecodeHead):
         return [output]
 
 
-    def assign_label(self, gt_semantic_seg, feat, norm=False, unlabeled_cats=None):
+    def assign_label(self, gt_semantic_seg, feat, norm=False, unlabeled_cats=None,
+                        clip=False, k=None, cls_token=None):
         if (gt_semantic_seg < 0).sum() == 0:
             return gt_semantic_seg, None
-
-        feat = resize(
-            input=feat,
-            size=gt_semantic_seg.shape[2:],
-            mode='bilinear',
-            align_corners=self.align_corners)
 
         if norm:
             feat = feat / feat.norm(dim=1, keepdim=True)
 
-        feat = feat.permute(0, 2, 3, 1)
         gt_semantic_seg = gt_semantic_seg.squeeze(1)
 
-        unlabeled_idx = (gt_semantic_seg < 0)
-        # [candidates, channels]
-        unlabeled_feat = feat[unlabeled_idx]
         if self.cls_bg:
             bg_embeddings = self.bg_embeddings / self.bg_embeddings.norm(dim=-1, keepdim=True)
             text_embeddings = torch.cat([bg_embeddings, self.text_embeddings], dim=0)
@@ -174,10 +180,30 @@ class DenseClipPlusHead(BaseDecodeHead):
             text_embeddings = self.text_embeddings
         # [unlabeled_cats, text_channels]
         unlabeled_text = text_embeddings[unlabeled_cats]
-        # [candidates, unlabeled_cats]
-        match_matrix = unlabeled_feat @ unlabeled_text.t()
+        unlabeled_idx = (gt_semantic_seg < 0)
+
+        output = torch.einsum('nchw,lc->nlhw', [feat, unlabeled_text])
+        if clip:
+            output = self.refine_clip_output(output, k, cls_token)
+
+        output = resize(
+            input=output,
+            size=gt_semantic_seg.shape[1:],
+            mode='bilinear',
+            align_corners=self.align_corners)
+        
+        neg_pos = None
+        if self.conf_thresh > 0:
+            N, C, H, W = output.shape
+            neg_pos = output.view(N, C, -1).max(dim=1)[0] < self.conf_thresh
+            neg_pos = neg_pos.view(N, H, W)
+        
+        output = output.permute(0, 2, 3, 1)
+        match_matrix = output[unlabeled_idx]
 
         gt_semantic_seg[unlabeled_idx] = unlabeled_cats[match_matrix.argmax(dim=1)]
+        if neg_pos is not None:
+            gt_semantic_seg[neg_pos] = -1
 
         return gt_semantic_seg[:, None, :, :]
 
@@ -186,6 +212,39 @@ class DenseClipPlusHead(BaseDecodeHead):
             assert torch.all(gt_semantic_seg != i), f'Ground-truth leakage! {i}'
         for i in self.clip_unlabeled_cats:
             assert torch.all(gt_semantic_seg != i), f'Ground-truth leakage! {i}'
+
+    def refine_clip_output(self, output, k=None, cls_token=None):
+        output2logits = False
+        if self.cls_thresh > 0:
+            N, C, H, W = output.shape
+            if not output2logits:
+                output = F.softmax(output*100, dim=1)
+                output2logits = True
+            max_cls_conf = output.view(N, C, -1).max(dim=-1)[0]
+            output[(max_cls_conf < self.cls_thresh)[:, :, None, None].expand(N, C, H, W)] = 0
+
+        if k is not None and self.num_vote > 0:
+            if not output2logits:
+                output = F.softmax(output*100, dim=1)
+                output2logits = True
+            N, C, H, W = output.shape
+            output = output.view(N, C, -1).transpose(-2, -1)
+            attn = torch.bmm(k, k.transpose(-2, -1))
+            attn = F.softmax(attn, dim=-1)
+            for i in range(self.num_vote):
+                if len(self.vote_thresh):
+                    vote_output = torch.bmm(attn, output)
+                    selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.vote_thresh[i])
+                    selected_pos = selected_pos.expand(-1, -1, C)
+                    output[selected_pos] = vote_output[selected_pos]
+                else:
+                    output = torch.bmm(attn, output)
+            output = output.transpose(-2, -1).view(N, C, H, W)
+
+        if not output2logits:
+            output = F.softmax(output*100, dim=1)
+
+        return output
 
     def forward_train(self, inputs, img_metas, gt_semantic_seg, train_cfg, img=None):
         """Forward function for training.
@@ -222,10 +281,29 @@ class DenseClipPlusHead(BaseDecodeHead):
                         gt = gt_semantic_seg.clone()
                         if gt_self is not None and self.cls_bg:
                             gt[gt_self == 0] = 0
-                        feat = self.clip(img)[-1]
-                        feat = self.c_proj(self.v_proj(feat))
+                        x = self.clip(img)[-1]
+                        q, k, v, cls_token = None, None, None, None
+                        if self.vit:
+                            if isinstance(x, list) and len(x) == 4:
+                                x, q, k, v = x
+                            if isinstance(x, list) and len(x) == 2:
+                                x, cls_token = x
+                            if v is not None:
+                                feat = self.proj(v)
+                            else:
+                                feat = self.proj(x)
+                            if cls_token is not None:
+                                cls_token = self.proj(cls_token[:, :, None, None])[:, :, 0, 0]
+                        else:
+                            q = self.q_proj(x)
+                            k = self.k_proj(x)
+                            q = torch.flatten(q, start_dim=2).transpose(-2, -1)
+                            k = torch.flatten(k, start_dim=2).transpose(-2, -1)
+                            v = self.v_proj(x)
+                            feat = self.c_proj(v)
                         gt_clip = self.assign_label(gt, feat,
-                                    True, self.clip_unlabeled_cats)
+                                    True, self.clip_unlabeled_cats, 
+                                    k=k, cls_token=cls_token, clip=True)
                         del gt
                 if gt_self is not None:
                     gt_semantic_seg = gt_self

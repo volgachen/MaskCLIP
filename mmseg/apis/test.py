@@ -237,8 +237,8 @@ def multi_gpu_test(model,
     return results
 
 
-def vis_output(model, data_loader, config_name, num_vis, class_names, 
-                        highlight_rule, black_bg):
+def vis_output(model, data_loader, config_name, num_vis, 
+                    highlight_rule, black_bg):
     model.eval()
     dataset = data_loader.dataset
     prog_bar = mmcv.ProgressBar(len(dataset))
@@ -266,6 +266,8 @@ def vis_output(model, data_loader, config_name, num_vis, class_names,
             highlight_names = all_index[(rank-1)*classes_per_split : rank*classes_per_split]
 
     count = 0
+    class_names = list(dataset.CLASSES)
+    palette = dataset.PALETTE
     for batch_indices, data in zip(loader_indices, data_loader):
         img_tensor = data['img'][0]
         img_metas = data['img_metas'][0].data[0]
@@ -285,13 +287,19 @@ def vis_output(model, data_loader, config_name, num_vis, class_names,
             seg_logit = model(return_loss=False, rescale=True, return_logit=True, **data)
         seg_logit = seg_logit[0]
         seg_pred = seg_logit.argmax(axis=0)
+
+        if len(class_names) + 1 == seg_logit.shape[0] and count == 0:
+            class_names = ['background'] + class_names
+            palette = [(0, 0, 0)] + palette
+            highlight_names = [i+1 for i in highlight_names]
+
         img_seg = model.module.show_result(img_show, [seg_pred], opacity=0.5,
-                                            palette=dataset.PALETTE,
-                                            classes=dataset.CLASSES, gt=gt)
+                                            palette=palette,
+                                            classes=class_names, gt=gt)
 
         filename = img_metas[0]['ori_filename']
-        # seg_logit = seg_logit.softmax(dim=1)
-        seg_logit = seg_logit == seg_logit.max(axis=0, keepdims=True)
+        # seg_logit = seg_logit.softmax(axis=0)
+        seg_logit = (seg_logit == seg_logit.max(axis=0, keepdims=True))
         fig = activation_matplotlib(seg_logit, img_show, img_seg, class_names, highlight_names)
         writer.add_figure(filename, fig)
 
@@ -305,8 +313,6 @@ def vis_output(model, data_loader, config_name, num_vis, class_names,
 
 
 def activation_matplotlib(seg_logit, image, image_seg, class_names, highlight_names):
-    if len(class_names) + 1 == seg_logit.shape[0]:
-        class_names = ['background'] + class_names
     total = len(class_names)+1 if image_seg is None else len(class_names)+2
     row, col = math.ceil((total)/5), 5
     fig = plt.figure(figsize=(6*col, 3*row))

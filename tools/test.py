@@ -234,11 +234,9 @@ def main():
         model = MMDataParallel(model, device_ids=[0])
 
         if args.vis_output:
-            config_name = args.checkpoint.split('/')[-2]
-            assert 'text_embeddings_path' in cfg.model.decode_head
-            class_names = torch.load('{}.names'.format(cfg.model.decode_head.text_embeddings_path[:-4]))
+            config_name = osp.basename(work_dir)
             vis_output(model, data_loader, config_name, args.num_vis,
-                        class_names, args.highlight, args.black_bg)
+                        args.highlight, args.black_bg)
             print()
             return
 

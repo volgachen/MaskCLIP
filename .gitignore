@@ -120,3 +120,4 @@ pretrain/
 *.pth
 
 *DS_Store*
+vis/
