@@ -2,8 +2,8 @@ _base_ = [
     '../../../_base_/models/denseclip_plus_vit16.py', '../../../_base_/datasets/web_image.py', 
     '../../../_base_/default_runtime.py', '../../../_base_/schedules/schedule_300.py'
 ]
-img_dir = 'mario'
-num_class = 7
+img_dir = 'blur'
+num_class = 20
 suppress_labels = list(range(0, num_class))
 model = dict(
     decode_head=dict(

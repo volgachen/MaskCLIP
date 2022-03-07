@@ -22,9 +22,7 @@ model = dict(
 )
 data = dict(
     samples_per_gpu=4,
-    train=dict(img_dir=img_dir),
-    val=dict(img_dir=img_dir),
-    test=dict(img_dir=img_dir, split=f'{img_dir}.txt')
+    test=dict(img_dir=img_dir, split=f'{img_dir}.txt', data_name=img_dir)
 )
 
     
