@@ -298,8 +298,8 @@ def vis_output(model, data_loader, config_name, num_vis,
                                             classes=class_names, gt=gt)
 
         filename = img_metas[0]['ori_filename']
-        # seg_logit = seg_logit.softmax(axis=0)
-        seg_logit = (seg_logit == seg_logit.max(axis=0, keepdims=True))
+        seg_logit = np.exp(seg_logit*100)
+        # seg_logit = (seg_logit == seg_logit.max(axis=0, keepdims=True))
         fig = activation_matplotlib(seg_logit, img_show, img_seg, class_names, highlight_names)
         writer.add_figure(filename, fig)
 

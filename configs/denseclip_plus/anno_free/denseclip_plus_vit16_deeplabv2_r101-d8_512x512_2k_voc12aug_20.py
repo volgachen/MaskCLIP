@@ -5,10 +5,10 @@ _base_ = [
 
 model = dict(
     decode_head=dict(
-        num_vote=1,
-        vote_thresh=1.0,
-        cls_thresh=0.5,
-        conf_thresh = 0.1,
+        # num_vote=1,
+        # vote_thresh=1.0,
+        # cls_thresh=0.5,
+        # conf_thresh = 0.1,
     ),
 )
 
