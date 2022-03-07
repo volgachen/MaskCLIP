@@ -16,7 +16,8 @@ class DenseClipHead(BaseDecodeHead):
     def __init__(self, text_categories, text_channels, text_embeddings_path,
                     visual_projs_path, vit=False, bg_thresh=0.,
                     num_vote=0, vote_thresh=0., topk_text=0, 
-                    cls_thresh=0., **kwargs):
+                    cls_thresh=0., attn_pooling=False, num_heads=32,
+                    **kwargs):
         super(DenseClipHead, self).__init__(**kwargs)
 
         self.text_categories = text_categories
@@ -42,6 +43,8 @@ class DenseClipHead(BaseDecodeHead):
         self.vote_thresh = vote_thresh
         self.topk_text = topk_text
         self.cls_thresh = cls_thresh
+        self.attn_pooling = attn_pooling
+        self.num_heads = num_heads
 
         self.load_text_embeddings()
         self.load_visual_projs()
@@ -83,12 +86,37 @@ class DenseClipHead(BaseDecodeHead):
             if cls_token is not None:
                 cls_token = self.proj(cls_token[:, :, None, None])[:, :, 0, 0]
         else:
-            q = self.q_proj(x)
-            k = self.k_proj(x)
-            q = torch.flatten(q, start_dim=2).transpose(-2, -1)
-            k = torch.flatten(k, start_dim=2).transpose(-2, -1)
-            v = self.v_proj(x)
-            feat = self.c_proj(v)
+            if self.attn_pooling:
+                N, C, H, W = x.shape
+                x = x.view(N, C, -1).permute(2, 0, 1)  # NCHW -> (HW)NC
+                x = torch.cat([x.mean(dim=0, keepdim=True), x], dim=0)
+                x, _ = F.multi_head_attention_forward(
+                    query=x, key=x, value=x,
+                    embed_dim_to_check=x.shape[-1],
+                    num_heads=self.num_heads,
+                    q_proj_weight=self.q_proj.weight[:, :, 0, 0],
+                    k_proj_weight=self.k_proj.weight[:, :, 0, 0],
+                    v_proj_weight=self.v_proj.weight[:, :, 0, 0],
+                    in_proj_weight=None,
+                    in_proj_bias=torch.cat([self.q_proj.bias, self.k_proj.bias, self.v_proj.bias]),
+                    bias_k=None,
+                    bias_v=None,
+                    add_zero_attn=False,
+                    dropout_p=0,
+                    out_proj_weight=self.c_proj.weight[:, :, 0, 0],
+                    out_proj_bias=self.c_proj.bias,
+                    use_separate_proj_weight=True,
+                    training=self.training,
+                    need_weights=False
+                )
+                feat = x[1:].permute(1, 2, 0).view(N, -1, H, W)
+            else:
+                q = self.q_proj(x)
+                k = self.k_proj(x)
+                q = torch.flatten(q, start_dim=2).transpose(-2, -1)
+                k = torch.flatten(k, start_dim=2).transpose(-2, -1)
+                v = self.v_proj(x)
+                feat = self.c_proj(v)
         output = self.cls_seg(feat)
         output = self.refine_output(output, k , cls_token)
 
@@ -101,24 +129,23 @@ class DenseClipHead(BaseDecodeHead):
         return output
 
     def refine_output(self, output, k, cls_token):
-        output_shape = output.shape
+        output2logits = False
 
         if self.topk_text > 0:
             assert cls_token is not None, 'Please set `output_cls_token=True` in the backbone config.'
-            cls_pred = torch.matmul(cls_token, self.text_embeddings.t())
+            cls_pred = cls_token @ self.text_embeddings.t()
             _, selected_cls = cls_pred.topk(self.topk_text, dim=1)
             N, C, H, W = output.shape
             selected_cls = selected_cls[:, :, None, None].expand(-1, -1, H, W)
-            output = output.gather(1, selected_cls)
-
-        output2logits = False
-        if self.cls_thresh > 0:
+            zeros = output.new_full((N, C, H, W), -100)
+            zeros[selected_cls] = output[selected_cls]
+            output = zeros
+        elif self.cls_thresh > 0:
             N, C, H, W = output.shape
-            if not output2logits:
-                output = F.softmax(output*100, dim=1)
-                output2logits = True
-            max_cls_conf = output.view(N, C, -1).max(dim=-1)[0]
-            output[(max_cls_conf < self.cls_thresh)[:, :, None, None].expand(N, C, H, W)] = 0
+            _output = F.softmax(output*100, dim=1)
+            max_cls_conf = _output.view(N, C, -1).max(dim=-1)[0]
+            selected_cls = (max_cls_conf < self.cls_thresh)[:, :, None, None].expand(N, C, H, W)
+            output[selected_cls] = -100
 
         if k is not None and self.num_vote > 0:
             if not output2logits:
@@ -126,20 +153,40 @@ class DenseClipHead(BaseDecodeHead):
                 output2logits = True
             N, C, H, W = output.shape
             output = output.view(N, C, -1).transpose(-2, -1)
-            attn = torch.bmm(k, k.transpose(-2, -1))
-            attn = F.softmax(attn, dim=-1)
+            # softmax
+            # attn = k @ k.transpose(-2, -1)
+            # attn = F.softmax(attn, dim=-1)
+            # L2 distance
+            k = F.normalize(k, p=2)
+            attn = k @ k.transpose(-2, -1)
+
             for i in range(self.num_vote):
                 if len(self.vote_thresh):
-                    selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.vote_thresh[i])
-                    # _selected_pos = selected_pos.expand(-1, -1, attn.shape[2])
+                    # selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.vote_thresh[i])
+                    # selected_pos = (output.max(dim=-1, keepdim=True)[0] < 0.8)
+                    
+                    # mask the unconfident
                     # masked_attn = attn.clone()
+                    # _selected_pos = selected_pos.expand(-1, -1, attn.shape[2])
                     # masked_attn[_selected_pos] = 0
                     # masked_attn[:, range(H*W), range(H*W)] = attn[:, range(H*W), range(H*W)]
-                    vote_output = torch.bmm(attn, output)
+                    
+                    # KNN
+                    # knn = masked_attn.topk(5, dim=-1)[1]
+                    # vote_output = output.view(-1, C)[knn.view(-1, 5)]
+                    # vote_output = vote_output.mean(dim=-2)
+                    # vote_output = vote_output.view(N, -1, C)
+                    
+                    # mask the unconfident
+                    # vote_output = masked_attn @ output
+
+                    vote_output = attn @ output
+
+                    selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.vote_thresh[i])
                     _selected_pos = selected_pos.expand(-1, -1, C)
                     output[_selected_pos] = vote_output[_selected_pos]
                 else:
-                    output = torch.bmm(attn, output)
+                    output = attn @ output
             output = output.transpose(-2, -1).view(N, C, H, W)
 
         bg_output = None
@@ -151,10 +198,6 @@ class DenseClipHead(BaseDecodeHead):
                 output2logits = True
             N, C, H, W = output.shape
             bg_output = output.new_full((N, 1, H, W), self.bg_thresh)
-
-        if self.topk_text > 0:
-            zeros = output.new_zeros(output_shape)
-            output = zeros.scatter(1, selected_cls, output)
         if bg_output is not None:
             output = torch.cat([bg_output, output[:, :self.num_classes]], dim=1)
 

@@ -217,11 +217,10 @@ class DenseClipPlusHead(BaseDecodeHead):
         output2logits = False
         if self.cls_thresh > 0:
             N, C, H, W = output.shape
-            if not output2logits:
-                output = F.softmax(output*100, dim=1)
-                output2logits = True
-            max_cls_conf = output.view(N, C, -1).max(dim=-1)[0]
-            output[(max_cls_conf < self.cls_thresh)[:, :, None, None].expand(N, C, H, W)] = 0
+            _output = F.softmax(output*100, dim=1)
+            max_cls_conf = _output.view(N, C, -1).max(dim=-1)[0]
+            selected_cls = (max_cls_conf < self.cls_thresh)[:, :, None, None].expand(N, C, H, W)
+            output[selected_cls] = -100
 
         if k is not None and self.num_vote > 0:
             if not output2logits:
@@ -229,20 +228,19 @@ class DenseClipPlusHead(BaseDecodeHead):
                 output2logits = True
             N, C, H, W = output.shape
             output = output.view(N, C, -1).transpose(-2, -1)
-            attn = torch.bmm(k, k.transpose(-2, -1))
-            attn = F.softmax(attn, dim=-1)
+            # L2 distance
+            k = F.normalize(k, p=2)
+            attn = k @ k.transpose(-2, -1)
+
             for i in range(self.num_vote):
                 if len(self.vote_thresh):
-                    vote_output = torch.bmm(attn, output)
+                    vote_output = attn @ output
                     selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.vote_thresh[i])
-                    selected_pos = selected_pos.expand(-1, -1, C)
-                    output[selected_pos] = vote_output[selected_pos]
+                    _selected_pos = selected_pos.expand(-1, -1, C)
+                    output[_selected_pos] = vote_output[_selected_pos]
                 else:
-                    output = torch.bmm(attn, output)
+                    output = attn @ output
             output = output.transpose(-2, -1).view(N, C, H, W)
-
-        if not output2logits:
-            output = F.softmax(output*100, dim=1)
 
         return output
 

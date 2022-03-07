@@ -3,6 +3,7 @@ _base_ = [
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_20k.py'
 ]
 model = dict(
+    backbone=dict(return_qkv=False),
     decode_head=dict(
         num_classes=171,
         text_categories=171, 
@@ -10,8 +11,7 @@ model = dict(
         text_embeddings_path='pretrain/stuff_ViT16_clip_text.pth',
         visual_projs_path='pretrain/ViT16_clip_weights.pth',
         # num_vote=1,
-        # vote_thresh=0.5,
+        # vote_thresh=1.0,
         # cls_thresh=0.5,
     ),
-    # backbone=dict(output_cls_token=True),
 )

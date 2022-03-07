@@ -5,10 +5,10 @@ _base_ = [
 
 model = dict(
     decode_head=dict(
-        # num_vote=1,
-        # vote_thresh=0.5,
-        # cls_thresh=0.5,
-        # conf_thresh = 0.1,
+        num_vote=1,
+        vote_thresh=1.0,
+        cls_thresh=0.5,
+        conf_thresh = 0.1,
     ),
 )
 
@@ -29,7 +29,7 @@ train_pipeline = [
     dict(type='Collect', keys=['img', 'gt_semantic_seg']),
 ]
 data = dict(
-    samples_per_gpu=2,
+    samples_per_gpu=4,
     train=dict(
         pipeline=train_pipeline
     )

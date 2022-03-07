@@ -15,5 +15,4 @@ model = dict(
         # cls_thresh=0.5,
         # bg_thresh=0.5,
     ),
-    # backbone=dict(output_cls_token=True),
 )
