@@ -9,11 +9,6 @@ from .custom import CustomDataset
 class WebImageDataset(CustomDataset):
     def __init__(self, **kwargs):
         data_name = kwargs.pop('data_name', 'batman')
-        
-        super(WebImageDataset, self).__init__(
-            img_suffix='.jpg', seg_map_suffix='.png', **kwargs)
-        assert osp.exists(self.img_dir)
-        
         if data_name in ['batman', 'gates', 'mickey', 'mario']:
             from tools.denseclip_utils.prompt_engineering import bg_classes
             WebImageDataset.CLASSES = ['obj1', 'obj2'] + bg_classes
@@ -42,3 +37,7 @@ class WebImageDataset(CustomDataset):
                        'sky', 'grass', 'tree', 'ground', 'floor',
                        'baseball court', 'basketball court', 'soccer court', 'football court')
             WebImageDataset.PALETTE = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]] + [[0, 0, 0]] * (len(WebImageDataset.CLASSES)-4)
+
+        super(WebImageDataset, self).__init__(
+            img_suffix='.jpg', seg_map_suffix='.png', **kwargs)
+        assert osp.exists(self.img_dir)
