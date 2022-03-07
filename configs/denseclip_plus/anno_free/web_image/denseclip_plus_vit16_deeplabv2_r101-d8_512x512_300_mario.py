@@ -6,6 +6,8 @@ img_dir = 'mario'
 num_class = 7
 suppress_labels = list(range(0, num_class))
 model = dict(
+    pretrained='open-mmlab://resnet101_v1c',
+    backbone=dict(depth=101),
     decode_head=dict(
         num_classes=num_class,
         text_categories=num_class,
