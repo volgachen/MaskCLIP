@@ -34,7 +34,7 @@ train_pipeline = [
 ]
 data = dict(
     samples_per_gpu=4,
-    train=dict(pipeline=train_pipeline, data_name=img_dir),
-    test=dict(data_name=img_dir)
+    train=dict(img_dir=img_dir, pipeline=train_pipeline, data_name=img_dir),
+    test=dict(img_dir=img_dir, data_name=img_dir)
     # test=dict(split=f'{img_dir}.txt', data_name=img_dir)
 )
