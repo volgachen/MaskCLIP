@@ -2,9 +2,9 @@ from mmseg.apis import inference_segmentor, init_segmentor, show_result_pyplot
 from mmseg.core.evaluation import get_palette
 import mmcv
 import torch
-from tools.denseclip_utils.prompt_engineering import zeroshot_classifier, prompt_templates
+from tools.maskclip_utils.prompt_engineering import zeroshot_classifier, prompt_templates
 
-config_file = '../configs/denseclip/maskclip_vit16_512x512_demo.py'
+config_file = '../configs/maskclip/maskclip_vit16_512x512_demo.py'
 config = mmcv.Config.fromfile(config_file)
 checkpoint_file = '../pretrain/ViT16_clip_backbone.pth'
 

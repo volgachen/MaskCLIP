@@ -119,8 +119,8 @@ Supported methods:
 - [x] [SETR (CVPR'2021)](configs/setr)
 - [x] [DPT (ArXiv'2021)](configs/dpt)
 - [x] [SegFormer (NeurIPS'2021)](configs/segformer)
-- [x] [DenseCLIP](configs/denseclip)
-- [x] [DenseCLIP+](configs/denseclip_plus)
+- [x] [MaskCLIP](configs/maskclip)
+- [x] [MaskCLIP+](configs/maskclip_plus)
 
 Supported datasets:
 

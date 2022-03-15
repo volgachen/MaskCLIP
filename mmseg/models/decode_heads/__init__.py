@@ -26,8 +26,8 @@ from .setr_mla_head import SETRMLAHead
 from .setr_up_head import SETRUPHead
 from .stdc_head import STDCHead
 from .uper_head import UPerHead
-from .denseclip_head import DenseClipHead
-from .denseclip_plus_head import DenseClipPlusHead
+from .maskclip_head import MaskClipHead
+from .maskclip_plus_head import MaskClipPlusHead
 from .aspp_headv2 import ASPPHeadV2
 
 __all__ = [
@@ -36,5 +36,5 @@ __all__ = [
     'EncHead', 'DepthwiseSeparableFCNHead', 'FPNHead', 'EMAHead', 'DNLHead',
     'PointHead', 'APCHead', 'DMHead', 'LRASPPHead', 'SETRUPHead',
     'SETRMLAHead', 'DPTHead', 'SETRMLAHead', 'SegformerHead', 'ISAHead',
-    'STDCHead', 'DenseClipHead', 'DenseClipPlusHead'
+    'STDCHead', 'MaskClipHead', 'MaskClipPlusHead', 'ASPPHeadV2'
 ]
