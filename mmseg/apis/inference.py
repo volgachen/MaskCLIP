@@ -7,7 +7,7 @@ from mmcv.runner import load_checkpoint
 
 from mmseg.datasets.pipelines import Compose
 from mmseg.models import build_segmentor
-
+from mmseg.datasets import build_dataset
 
 def init_segmentor(config, checkpoint=None, device='cuda:0'):
     """Initialize a segmentor from config file.
@@ -32,8 +32,13 @@ def init_segmentor(config, checkpoint=None, device='cuda:0'):
     model = build_segmentor(config.model, test_cfg=config.get('test_cfg'))
     if checkpoint is not None:
         checkpoint = load_checkpoint(model, checkpoint, map_location='cpu')
-        model.CLASSES = checkpoint['meta']['CLASSES']
-        model.PALETTE = checkpoint['meta']['PALETTE']
+        if 'meta' in checkpoint and 'CLASSES' in checkpoint['meta']:
+            model.CLASSES = checkpoint['meta']['CLASSES']
+            model.PALETTE = checkpoint['meta']['PALETTE']
+        else:
+            dataset = build_dataset(config.data.test)
+            model.CLASSES = dataset.CLASSES
+            model.PALETTE = dataset.PALETTE
     model.cfg = config  # save the config in the model for convenience
     model.to(device)
     model.eval()
