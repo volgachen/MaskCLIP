@@ -185,6 +185,10 @@ class VisionTransformer(BaseModule):
                  norm_eval=False,
                  with_cp=False,
                  pretrained=None,
+                 freeze_xsfm=False,
+                 freeze_cls=False,
+                 freeze_pos=False,
+                 num_prompt=0,
                  init_cfg=None):
         super(VisionTransformer, self).__init__(init_cfg=init_cfg)
 
@@ -239,6 +243,11 @@ class VisionTransformer(BaseModule):
             torch.zeros(1, num_patches + 1, embed_dims))
         self.drop_after_pos = nn.Dropout(p=drop_rate)
 
+        self.num_prompt = num_prompt
+        if num_prompt > 0:
+            self.prompt = nn.Parameter(torch.zeros(1, num_prompt, embed_dims))
+            trunc_normal_(self.prompt, std=.02)
+
         if isinstance(out_indices, int):
             if out_indices == -1:
                 out_indices = num_layers - 1
@@ -281,6 +290,26 @@ class VisionTransformer(BaseModule):
             self.add_module(self.norm1_name, norm1)
 
         self.return_qkv = return_qkv
+
+        self.freeze_xsfm = freeze_xsfm
+        self.freeze_cls = freeze_cls
+        self.freeze_pos = freeze_pos
+        self._freeze()
+
+    def _freeze(self):
+        """Freeze stages param and norm stats."""
+        if self.freeze_xsfm:
+            self.patch_embed.eval()
+            for param in self.patch_embed.parameters():
+                param.requires_grad = False
+            for m in self.layers:
+                m.eval()
+                for param in m.parameters():
+                    param.requires_grad = False
+        if self.freeze_cls:
+            self.cls_token.requires_grad = False
+        if self.freeze_pos:
+            self.pos_embed.requires_grad = False
 
     @property
     def norm0(self):
@@ -407,6 +436,10 @@ class VisionTransformer(BaseModule):
         x = torch.cat((cls_tokens, x), dim=1)
         x = self._pos_embeding(x, hw_shape, self.pos_embed)
 
+        if self.num_prompt > 0:
+            prompt = self.prompt.expand(B, -1, -1)
+            x = torch.cat((x, prompt), dim=1)
+
         if not self.with_cls_token:
             # Remove class token for transformer encoder input
             x = x[:, 1:]
@@ -430,6 +463,8 @@ class VisionTransformer(BaseModule):
                     out = x[:, 1:]
                 else:
                     out = x
+                if self.num_prompt > 0:
+                    out = out[:, :-self.num_prompt]
                 B, _, C = out.shape
                 out = out.reshape(B, hw_shape[0], hw_shape[1],
                                   C).permute(0, 3, 1, 2).contiguous()
@@ -440,6 +475,10 @@ class VisionTransformer(BaseModule):
                         q = q[:, 1:]
                         k = k[:, 1:]
                         v = v[:, 1:]
+                    if self.num_prompt > 0:
+                        q = q[:, :-self.num_prompt]
+                        k = k[:, :-self.num_prompt]
+                        v = v[:, :-self.num_prompt]
                     v = v.reshape(B, hw_shape[0], hw_shape[1],
                                   C).permute(0, 3, 1, 2).contiguous()
                     out = [out, q, k, v]
@@ -449,6 +488,7 @@ class VisionTransformer(BaseModule):
 
     def train(self, mode=True):
         super(VisionTransformer, self).train(mode)
+        self._freeze()
         if mode and self.norm_eval:
             for m in self.modules():
                 if isinstance(m, nn.LayerNorm):
