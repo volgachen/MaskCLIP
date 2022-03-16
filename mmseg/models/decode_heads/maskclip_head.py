@@ -8,8 +8,6 @@ from mmseg.utils import get_root_logger
 from ..builder import HEADS
 from .decode_head import BaseDecodeHead
 
-import math
-
 @HEADS.register_module()
 class MaskClipHead(BaseDecodeHead):
 
@@ -118,7 +116,8 @@ class MaskClipHead(BaseDecodeHead):
                 v = self.v_proj(x)
                 feat = self.c_proj(v)
         output = self.cls_seg(feat)
-        output = self.refine_output(output, k , cls_token)
+        if not self.training:
+            output = self.refine_output(output, k , cls_token)
 
         return output
 
@@ -162,11 +161,9 @@ class MaskClipHead(BaseDecodeHead):
 
             for i in range(self.num_vote):
                 if len(self.vote_thresh):
-                    # selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.vote_thresh[i])
-                    # selected_pos = (output.max(dim=-1, keepdim=True)[0] < 0.8)
-                    
                     # mask the unconfident
                     # masked_attn = attn.clone()
+                    # selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.vote_thresh[i])
                     # _selected_pos = selected_pos.expand(-1, -1, attn.shape[2])
                     # masked_attn[_selected_pos] = 0
                     # masked_attn[:, range(H*W), range(H*W)] = attn[:, range(H*W), range(H*W)]
@@ -203,5 +200,5 @@ class MaskClipHead(BaseDecodeHead):
 
         return output
 
-    def forward_train(self, inputs, img_metas, gt_semantic_seg, train_cfg):
-        raise RuntimeError('MaskClip is not trainable. Try MaskClip+ instead.')
+    # def forward_train(self, inputs, img_metas, gt_semantic_seg, train_cfg):
+    #     raise RuntimeError('MaskClip is not trainable. Try MaskClip+ instead.')

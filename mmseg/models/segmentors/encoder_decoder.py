@@ -8,7 +8,6 @@ from mmseg.ops import resize
 from .. import builder
 from ..builder import SEGMENTORS
 from .base import BaseSegmentor
-from ..decode_heads import DenseClipPlusHead
 
 
 @SEGMENTORS.register_module()
