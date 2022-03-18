@@ -15,7 +15,7 @@ class MaskClipHead(BaseDecodeHead):
                     visual_projs_path, vit=False, bg_thresh=0.,
                     num_vote=0, vote_thresh=0., topk_text=0, 
                     cls_thresh=0., attn_pooling=False, num_heads=32,
-                    **kwargs):
+                    freeze_text=False, **kwargs):
         super(MaskClipHead, self).__init__(**kwargs)
 
         self.text_categories = text_categories
@@ -43,6 +43,7 @@ class MaskClipHead(BaseDecodeHead):
         self.cls_thresh = cls_thresh
         self.attn_pooling = attn_pooling
         self.num_heads = num_heads
+        self.freeze_text = freeze_text
 
         self.load_text_embeddings()
         self.load_visual_projs()
@@ -68,6 +69,16 @@ class MaskClipHead(BaseDecodeHead):
                     state_dict[key] = state_dict[key][:, :, None, None]
             current_attr.load_state_dict(state_dict)
         print_log(f'Loaded proj weights from {self.visual_projs_path}', logger=get_root_logger())
+    
+    def _freeze_text(self):
+        """Freeze params and norm stats."""
+        if self.freeze_text:
+            self.text_embeddings.requires_grad = False
+
+    def train(self, mode=True):
+        super(MaskClipHead, self).train(mode)
+        if mode:
+            self._freeze_text()
     
     def forward(self, inputs):
         x = self._transform_inputs(inputs)
