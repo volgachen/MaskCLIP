@@ -124,3 +124,7 @@ vis/
 log/
 show_dirs/
 wordnet/
+corrupt.sh
+run.sh
+configs/rename.py
+demo/maskclip_demo.ipynb

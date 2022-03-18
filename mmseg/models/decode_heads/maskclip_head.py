@@ -15,7 +15,7 @@ class MaskClipHead(BaseDecodeHead):
                     visual_projs_path, vit=False, bg_thresh=0.,
                     num_vote=0, vote_thresh=0., topk_text=0, 
                     cls_thresh=0., attn_pooling=False, num_heads=32,
-                    freeze_text=False, **kwargs):
+                    **kwargs):
         super(MaskClipHead, self).__init__(**kwargs)
 
         self.text_categories = text_categories
@@ -23,7 +23,12 @@ class MaskClipHead(BaseDecodeHead):
         self.text_embeddings_path = text_embeddings_path
         self.visual_projs_path = visual_projs_path
 
-        self.register_buffer('text_embeddings', torch.randn(text_categories, text_channels))
+        if self.text_embeddings_path is None:
+            self.text_embeddings = nn.Parameter(torch.zeros(text_categories, text_channels))
+            nn.init.normal_(self.text_embeddings, mean=0.0, std=0.01)
+        else:
+            self.register_buffer('text_embeddings', torch.randn(text_categories, text_channels))
+            self.load_text_embeddings()
         
         self.vit = vit
         if vit:
@@ -33,6 +38,7 @@ class MaskClipHead(BaseDecodeHead):
             self.k_proj = nn.Conv2d(self.in_channels, self.in_channels, 1)
             self.v_proj = nn.Conv2d(self.in_channels, self.in_channels, 1)
             self.c_proj = nn.Conv2d(self.in_channels, text_channels, 1)
+        self.load_visual_projs()
 
         self.bg_thresh = bg_thresh
         self.num_vote = num_vote
@@ -43,14 +49,13 @@ class MaskClipHead(BaseDecodeHead):
         self.cls_thresh = cls_thresh
         self.attn_pooling = attn_pooling
         self.num_heads = num_heads
-        self.freeze_text = freeze_text
-
-        self.load_text_embeddings()
-        self.load_visual_projs()
 
     def init_weights(self):
         super(MaskClipHead, self).init_weights()
-        self.load_text_embeddings()
+        if self.text_embeddings_path is None:
+            nn.init.normal_(self.text_embeddings, mean=0.0, std=0.01)
+        else:
+            self.load_text_embeddings()
         self.load_visual_projs()
 
     def load_text_embeddings(self):
@@ -69,16 +74,6 @@ class MaskClipHead(BaseDecodeHead):
                     state_dict[key] = state_dict[key][:, :, None, None]
             current_attr.load_state_dict(state_dict)
         print_log(f'Loaded proj weights from {self.visual_projs_path}', logger=get_root_logger())
-    
-    def _freeze_text(self):
-        """Freeze params and norm stats."""
-        if self.freeze_text:
-            self.text_embeddings.requires_grad = False
-
-    def train(self, mode=True):
-        super(MaskClipHead, self).train(mode)
-        if mode:
-            self._freeze_text()
     
     def forward(self, inputs):
         x = self._transform_inputs(inputs)
