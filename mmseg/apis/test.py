@@ -6,13 +6,13 @@ import warnings
 import mmcv
 import numpy as np
 import torch
+from torch.utils.tensorboard._utils import figure_to_image
 from mmcv.engine import collect_results_cpu, collect_results_gpu
 from mmcv.image import tensor2imgs
 from mmcv.runner import get_dist_info
 
 import matplotlib.pyplot as plt
 import math
-from torch.utils.tensorboard import SummaryWriter
 
 
 def np2tmp(array, temp_file_name=None, tmpdir=None):
@@ -238,7 +238,7 @@ def multi_gpu_test(model,
 
 
 def vis_output(model, data_loader, config_name, num_vis, 
-                    highlight_rule, black_bg):
+                    highlight_rule, black_bg, pavi=False):
     model.eval()
     dataset = data_loader.dataset
     prog_bar = mmcv.ProgressBar(len(dataset))
@@ -249,7 +249,12 @@ def vis_output(model, data_loader, config_name, num_vis,
     # we use batch_sampler to get correct data idx
     loader_indices = data_loader.batch_sampler
 
-    writer = SummaryWriter('vis/{}'.format(config_name))
+    if pavi:
+        from pavi import SummaryWriter
+        writer = SummaryWriter(config_name, project='maskclip')
+    else:
+        from torch.utils.tensorboard import SummaryWriter
+        writer = SummaryWriter('vis/{}'.format(config_name))
 
     if len(highlight_rule) == 0:
         highlight_names = []
@@ -301,7 +306,9 @@ def vis_output(model, data_loader, config_name, num_vis,
         # seg_logit = np.exp(seg_logit*100)
         seg_logit = (seg_logit == seg_logit.max(axis=0, keepdims=True))
         fig = activation_matplotlib(seg_logit, img_show, img_seg, class_names, highlight_names)
-        writer.add_figure(filename, fig)
+        # writer.add_figure(filename, fig)
+        img = figure_to_image(fig)
+        writer.add_image(filename, img)
 
         batch_size = img_tensor.size(0)
         for _ in range(batch_size):
@@ -310,6 +317,7 @@ def vis_output(model, data_loader, config_name, num_vis,
         count += 1
         if count == num_vis:
             break
+    writer.close()
 
 
 def activation_matplotlib(seg_logit, image, image_seg, class_names, highlight_names):

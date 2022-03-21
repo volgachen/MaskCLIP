@@ -46,6 +46,7 @@ def parse_args():
     parser.add_argument(
         '--show-dir', help='directory where painted images will be saved')
     parser.add_argument('--vis-output', action='store_true', help='visualize output maps')
+    parser.add_argument('--pavi', action='store_true', help='use PAVI instead of tensorboard')
     parser.add_argument('--highlight', type=str, default='',
         help='the rule to highlight certain classes for zero-shot settings,'
         'e.g. 1_4_itv means split #1 out of the total 4 splits and apply interval strategy'
@@ -192,9 +193,6 @@ def main():
         wrap_fp16_model(model)
     checkpoint = load_checkpoint(model, args.checkpoint, map_location='cpu')
     
-    from mmcv.cnn.utils.weight_init import trunc_normal_
-    trunc_normal_(model.backbone.cls_token, std=.02)
-    
     if 'CLASSES' in checkpoint.get('meta', {}):
         model.CLASSES = checkpoint['meta']['CLASSES']
     else:
@@ -240,7 +238,7 @@ def main():
         if args.vis_output:
             config_name = osp.basename(work_dir)
             vis_output(model, data_loader, config_name, args.num_vis,
-                        args.highlight, args.black_bg)
+                        args.highlight, args.black_bg, args.pavi)
             print()
             return
 
