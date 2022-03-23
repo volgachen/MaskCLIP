@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import math
 import warnings
+from xmlrpc.client import Boolean
 
 import torch
 import torch.nn as nn
@@ -180,6 +181,7 @@ class VisionTransformer(BaseModule):
                  pre_norm=False,
                  final_norm=False,
                  return_qkv=False,
+                 skip_last_attn=False,
                  interpolate_mode='bicubic',
                  num_fcs=2,
                  norm_eval=False,
@@ -289,7 +291,17 @@ class VisionTransformer(BaseModule):
                 norm_cfg, embed_dims, postfix=1)
             self.add_module(self.norm1_name, norm1)
 
-        self.return_qkv = return_qkv
+        self.return_qkv = [False] * num_layers
+        if isinstance(return_qkv, bool):
+            for out_i in self.out_indices:
+                self.return_qkv[out_i] = return_qkv
+        elif isinstance(return_qkv, list) or isinstance(return_qkv, tuple):
+            for i, out_i in enumerate(self.out_indices):
+                self.return_qkv[out_i] = return_qkv[i]
+        else:
+            raise TypeError('return_qkv must be type of bool, list or tuple')
+
+        self.skip_last_attn = skip_last_attn
 
         self.freeze_xsfm = freeze_xsfm
         self.freeze_cls = freeze_cls
@@ -449,14 +461,18 @@ class VisionTransformer(BaseModule):
 
         outs = []
         for i, layer in enumerate(self.layers):
+            x, q, k, v = layer(x, self.return_qkv[i] \
+                                or (i==len(self.layers)-1 and self.skip_last_attn))
             if i == len(self.layers) - 1:
-                x, q, k, v = layer(x, self.return_qkv)
                 if self.final_norm:
                     x = self.norm1(x)
-                    if v is not None:
+                    if self.return_qkv[i]:
                         v = self.norm1(v)
-            else:
-                x, _, _, _ = layer(x)
+                if self.skip_last_attn:
+                    if self.with_cls_token:
+                        x[:, 1:] = v[:, 1:]
+                    else:
+                        x = v
             if i in self.out_indices:
                 if self.with_cls_token:
                     # Remove class token and reshape token for decoder head
@@ -470,7 +486,7 @@ class VisionTransformer(BaseModule):
                                   C).permute(0, 3, 1, 2).contiguous()
                 if self.output_cls_token:
                     out = [out, x[:, 0]]
-                if self.return_qkv:
+                if self.return_qkv[i]:
                     if self.with_cls_token:
                         q = q[:, 1:]
                         k = k[:, 1:]
