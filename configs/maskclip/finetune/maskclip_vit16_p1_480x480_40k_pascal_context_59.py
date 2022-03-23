@@ -7,6 +7,3 @@ model = dict(
         num_prompt=1,
     )
 )
-# data = dict(
-#     samples_per_gpu=2,
-# )

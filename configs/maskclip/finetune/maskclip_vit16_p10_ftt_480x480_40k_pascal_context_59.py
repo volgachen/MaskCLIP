@@ -4,6 +4,3 @@ model = dict(
         text_embeddings_path=None,
     ),
 )
-# data = dict(
-#     samples_per_gpu=2,
-# )

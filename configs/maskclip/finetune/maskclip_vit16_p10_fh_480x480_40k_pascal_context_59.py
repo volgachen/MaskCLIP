@@ -4,6 +4,4 @@ model = dict(
         freeze=True,
     ),
 )
-# data = dict(
-#     samples_per_gpu=2,
-# )
+find_unused_parameters=True
