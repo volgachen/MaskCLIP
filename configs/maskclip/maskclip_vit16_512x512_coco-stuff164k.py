@@ -3,7 +3,6 @@ _base_ = [
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_20k.py'
 ]
 model = dict(
-    backbone=dict(return_qkv=False),
     decode_head=dict(
         num_classes=171,
         text_categories=171, 
