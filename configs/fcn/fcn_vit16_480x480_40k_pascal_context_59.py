@@ -7,6 +7,3 @@ model = dict(
     decode_head=dict(num_classes=59)
 )
 optimizer = dict(type='SGD', lr=0.004, momentum=0.9, weight_decay=0.0001)
-# data = dict(
-#     samples_per_gpu=2,
-# )

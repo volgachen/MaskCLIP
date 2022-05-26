@@ -11,6 +11,3 @@ model = dict(
         visual_projs_path='pretrain/ViT16_clip_weights.pth',
     ),
 )
-# data = dict(
-#     samples_per_gpu=2,
-# )
