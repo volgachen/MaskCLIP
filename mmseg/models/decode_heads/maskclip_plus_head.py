@@ -288,15 +288,17 @@ class MaskClipPlusHead(BaseDecodeHead):
 
             gt_semantic_seg[gt_semantic_seg<0] = 255
             losses = self.losses(seg_logits, gt_semantic_seg)
-            
+
             feat = resize(
                 input=feat,
-                size=clip_feat.shape[2:],
+                size=mask.shape[2:],
                 mode='bilinear',
                 align_corners=self.align_corners)
-            mask = resize(
-                input=mask.to(torch.uint8),
-                size=clip_feat.shape[2:]).to(torch.bool)
+            clip_feat = resize(
+                input=clip_feat,
+                size=mask.shape[2:],
+                mode='bilinear',
+                align_corners=self.align_corners)
             mask = mask.squeeze(1)
             if torch.any(mask):
                 feat = feat.permute(0, 2, 3, 1)[mask]
