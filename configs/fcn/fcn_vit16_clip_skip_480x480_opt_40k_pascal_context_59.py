@@ -19,6 +19,3 @@ optimizer = dict(
             'norm': dict(decay_mult=0.)}
     )
 )
-# data = dict(
-#     samples_per_gpu=2,
-# )

@@ -20,7 +20,8 @@ class MaskClipPlusHead(BaseDecodeHead):
                     unlabeled_cats=[], clip_unlabeled_cats=[], clip_cfg=None,
                     clip_weights_path=None, reset_counter=False, clip_channels=None, 
                     vit=False, num_vote=0, vote_thresh=0., cls_thresh=0.,
-                    conf_thresh=0., **kwargs):
+                    conf_thresh=0., distill=False, distill_labeled=True,
+                    distill_weight=1., **kwargs):
         super(MaskClipPlusHead, self).__init__(
             input_transform=decode_module_cfg.pop('input_transform'), **kwargs)
         self.text_categories = text_categories
@@ -40,6 +41,9 @@ class MaskClipPlusHead(BaseDecodeHead):
         self.reset_counter = reset_counter
         if clip_channels is None:
             clip_channels = self.in_channels
+        self.distill = distill
+        self.distill_labeled = distill_labeled
+        self.distill_weight = distill_weight
 
         del self.conv_seg
         self.init_cfg = None
@@ -260,7 +264,45 @@ class MaskClipPlusHead(BaseDecodeHead):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-        if self.train_unlabeled:
+        if self.distill:
+            seg_logits, feat = self.forward(inputs)
+            x = self.clip(img)[-1]
+            if self.vit:
+                v = None
+                if isinstance(x, list) and len(x) == 4:
+                    x, _, _, v = x
+                if isinstance(x, list) and len(x) == 2:
+                    x, cls_token = x
+                if v is not None:
+                    clip_feat = self.proj(v)
+                else:
+                    clip_feat = self.proj(x)
+            else:
+                clip_feat = self.c_proj(self.v_proj(x))
+            clip_feat = clip_feat / clip_feat.norm(dim=1, keepdim=True)
+
+            if self.distill_labeled:
+                mask = (gt_semantic_seg != 255)
+            else:
+                mask = (gt_semantic_seg < 0)
+
+            gt_semantic_seg[gt_semantic_seg<0] = 255
+            losses = self.losses(seg_logits, gt_semantic_seg)
+            
+            feat = resize(
+                input=feat,
+                size=clip_feat.shape[2:],
+                mode='bilinear',
+                align_corners=self.align_corners)
+            mask = resize(
+                input=mask.to(torch.uint8),
+                size=clip_feat.shape[2:]).to(torch.bool)
+            mask = mask.squeeze(1)
+            if torch.any(mask):
+                feat = feat.permute(0, 2, 3, 1)[mask]
+                clip_feat = clip_feat.permute(0, 2, 3, 1)[mask]
+                losses['loss_distill'] = F.l1_loss(feat, clip_feat) * self.distill_weight
+        elif self.train_unlabeled:
             seg_logits, feat = self.forward(inputs)
             gt_self, gt_clip, gt_weight = None, None, None
             self.label_sanity_check(gt_semantic_seg)

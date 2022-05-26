@@ -356,7 +356,7 @@ class VisionTransformer(BaseModule):
                         (h // self.patch_size, w // self.patch_size),
                         (pos_size, pos_size), self.interpolate_mode)
 
-            self.load_state_dict(state_dict, False)
+            print(self.load_state_dict(state_dict, False))
         elif self.init_cfg is not None:
             super(VisionTransformer, self).init_weights()
         else:
