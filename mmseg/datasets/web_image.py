@@ -37,6 +37,11 @@ class WebImageDataset(CustomDataset):
                        'sky', 'grass', 'tree', 'ground', 'floor',
                        'baseball court', 'basketball court', 'soccer court', 'football court')
             WebImageDataset.PALETTE = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]] + [[0, 0, 0]] * (len(WebImageDataset.CLASSES)-4)
+        elif data_name == 'batman_ext':
+            WebImageDataset.CLASSES = ('Batman', 'Joker', 'Superman',
+                        'Wonder Woman', 'Aquaman', 'Harley Quinn', 'Riddler',
+                        'building', 'ground', 'grass', 'tree', 'sky')
+            WebImageDataset.PALETTE = [[255, 0, 0], [0, 0, 255]] + [[0, 255, 0]] * 5 + [[0, 0, 0]] * 5
 
         super(WebImageDataset, self).__init__(
             img_suffix='.jpg', seg_map_suffix='.png', **kwargs)
