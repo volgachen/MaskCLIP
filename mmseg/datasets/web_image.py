@@ -24,7 +24,7 @@ class WebImageDataset(CustomDataset):
             WebImageDataset.PALETTE = [[255, 0, 0], [0, 0, 255]] + [[0, 0, 0]] * (len(WebImageDataset.CLASSES)-2)
         elif data_name == 'car_brands':
             WebImageDataset.CLASSES = ('Bugatti Veyron', 'Cadillac DeVille',
-                        'Porsche 718 Cayman', 'Lamborghini Gallardo'
+                        'Porsche 718 Cayman', 'Lamborghini Gallardo',
                         'road', 'sidewalk', 'building', 'wall', 
                         'fence', 'pole', 'traffic light', 'traffic sign', 
                         'vegetation', 'terrain', 'sky', 'person', 'rider', 
@@ -37,11 +37,20 @@ class WebImageDataset(CustomDataset):
                        'sky', 'grass', 'tree', 'ground', 'floor',
                        'baseball court', 'basketball court', 'soccer court', 'football court')
             WebImageDataset.PALETTE = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]] + [[0, 0, 0]] * (len(WebImageDataset.CLASSES)-4)
+        elif data_name == 'car_color':
+            WebImageDataset.CLASSES = ('white car', 'blue car', 'red car',
+                        'black car', 'green car', 'yellow car',
+                        'road', 'sidewalk', 'building', 'wall',
+                        'fence', 'pole', 'traffic light', 'traffic sign',
+                        'vegetation', 'terrain', 'sky', 'person', 'rider',
+                        'truck', 'bus', 'train', 'motorcycle', 'bicycle')
+            WebImageDataset.PALETTE = [[255, 255, 255], [0, 0, 255], [255, 0, 0], [0, 0, 0], [0, 255, 0], [255, 255, 0]] + [[0, 0, 0]] * (len(WebImageDataset.CLASSES)-6)
+            # WebImageDataset.CLASSES = ('white', 'black', 'gray', 'red', 'green', 'blue', 'yellow', 'cyan', 'orange')
+            # WebImageDataset.PALETTE = [[255, 255, 255], [0, 0, 0], [127, 127, 127], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [0, 255, 255], [255, 165, 0]]
         elif data_name == 'batman_ext':
-            WebImageDataset.CLASSES = ('Batman', 'Joker', 'Superman',
-                        'Wonder Woman', 'Aquaman', 'Harley Quinn', 'Riddler',
-                        'building', 'ground', 'grass', 'tree', 'sky')
-            WebImageDataset.PALETTE = [[255, 0, 0], [0, 0, 255]] + [[0, 255, 0]] * 5 + [[0, 0, 0]] * 5
+            from tools.maskclip_utils.prompt_engineering import cityscapes_no_person_classes
+            WebImageDataset.CLASSES = ['Batman', 'Joker', 'James Gordon', 'The Penguin', 'Robin', 'Alfred Pennyworth', 'Catwoman', 'Harley Quinn'] + cityscapes_no_person_classes
+            WebImageDataset.PALETTE = [[255, 0, 0], [0, 0, 255], [0, 255, 0], [255, 255, 0]] + [[127, 127, 127]] * 4 + [[0, 0, 0]] * len(cityscapes_no_person_classes)
 
         super(WebImageDataset, self).__init__(
             img_suffix='.jpg', seg_map_suffix='.png', **kwargs)
