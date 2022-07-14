@@ -45,8 +45,6 @@ class WebImageDataset(CustomDataset):
                         'vegetation', 'terrain', 'sky', 'person', 'rider',
                         'truck', 'bus', 'train', 'motorcycle', 'bicycle')
             WebImageDataset.PALETTE = [[255, 255, 255], [0, 0, 255], [255, 0, 0], [0, 0, 0], [0, 255, 0], [255, 255, 0]] + [[0, 0, 0]] * (len(WebImageDataset.CLASSES)-6)
-            # WebImageDataset.CLASSES = ('white', 'black', 'gray', 'red', 'green', 'blue', 'yellow', 'cyan', 'orange')
-            # WebImageDataset.PALETTE = [[255, 255, 255], [0, 0, 0], [127, 127, 127], [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [0, 255, 255], [255, 165, 0]]
         elif data_name == 'batman_ext':
             from tools.maskclip_utils.prompt_engineering import cityscapes_no_person_classes
             WebImageDataset.CLASSES = ['Batman', 'Joker', 'James Gordon', 'The Penguin', 'Robin', 'Alfred Pennyworth', 'Catwoman', 'Harley Quinn'] + cityscapes_no_person_classes

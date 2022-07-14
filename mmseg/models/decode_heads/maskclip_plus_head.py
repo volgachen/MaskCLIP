@@ -19,9 +19,8 @@ class MaskClipPlusHead(BaseDecodeHead):
                     start_self_train=(-1, -1), start_clip_guided=(-1, -1), 
                     unlabeled_cats=[], clip_unlabeled_cats=[], clip_cfg=None,
                     clip_weights_path=None, reset_counter=False, clip_channels=None, 
-                    vit=False, num_vote=0, vote_thresh=0., cls_thresh=0.,
-                    conf_thresh=0., distill=False, distill_labeled=True,
-                    distill_weight=1., **kwargs):
+                    vit=False, ks_thresh=0., pd_thresh=0., conf_thresh=0., 
+                    distill=False, distill_labeled=True, distill_weight=1., **kwargs):
         super(MaskClipPlusHead, self).__init__(
             input_transform=decode_module_cfg.pop('input_transform'), **kwargs)
         self.text_categories = text_categories
@@ -56,11 +55,8 @@ class MaskClipPlusHead(BaseDecodeHead):
         self.vit = vit
         if self.clip_guided:
             self.clip = build_backbone(clip_cfg)
-            self.num_vote = num_vote
-            if not isinstance(vote_thresh, list):
-                vote_thresh = [vote_thresh] * num_vote
-            self.vote_thresh = vote_thresh
-            self.cls_thresh = cls_thresh
+            self.ks_thresh = ks_thresh
+            self.pd_thresh = pd_thresh
             self.conf_thresh = conf_thresh
             if vit:
                 self.proj = nn.Conv2d(clip_channels, text_channels, 1, bias=False)
@@ -188,7 +184,7 @@ class MaskClipPlusHead(BaseDecodeHead):
 
         output = torch.einsum('nchw,lc->nlhw', [feat, unlabeled_text])
         if clip:
-            output = self.refine_clip_output(output, k, cls_token)
+            output = self.refine_clip_output(output, k)
 
         output = resize(
             input=output,
@@ -217,33 +213,30 @@ class MaskClipPlusHead(BaseDecodeHead):
         for i in self.clip_unlabeled_cats:
             assert torch.all(gt_semantic_seg != i), f'Ground-truth leakage! {i}'
 
-    def refine_clip_output(self, output, k=None, cls_token=None):
-        output2logits = False
-        if self.cls_thresh > 0:
+    def refine_clip_output(self, output, k=None):
+        if self.pd_thresh > 0:
             N, C, H, W = output.shape
             _output = F.softmax(output*100, dim=1)
             max_cls_conf = _output.view(N, C, -1).max(dim=-1)[0]
-            selected_cls = (max_cls_conf < self.cls_thresh)[:, :, None, None].expand(N, C, H, W)
+            selected_cls = (max_cls_conf < self.pd_thresh)[:, :, None, None].expand(N, C, H, W)
             output[selected_cls] = -100
 
-        if k is not None and self.num_vote > 0:
-            if not output2logits:
-                output = F.softmax(output*100, dim=1)
-                output2logits = True
+        if k is not None and self.ks_thresh > 0:
+            output = F.softmax(output*100, dim=1)
             N, C, H, W = output.shape
             output = output.view(N, C, -1).transpose(-2, -1)
+            # softmax
+            # weight = k @ k.transpose(-2, -1)
+            # weight = F.softmax(weight, dim=-1)
             # L2 distance
             k = F.normalize(k, p=2)
-            attn = k @ k.transpose(-2, -1)
+            weight = k @ k.transpose(-2, -1)
 
-            for i in range(self.num_vote):
-                if len(self.vote_thresh):
-                    vote_output = attn @ output
-                    selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.vote_thresh[i])
-                    _selected_pos = selected_pos.expand(-1, -1, C)
-                    output[_selected_pos] = vote_output[_selected_pos]
-                else:
-                    output = attn @ output
+            selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.ks_thresh)
+            selected_pos = selected_pos.expand(-1, -1, C)
+
+            weighted_output = weight @ output
+            output[selected_pos] = weighted_output[selected_pos]
             output = output.transpose(-2, -1).view(N, C, H, W)
 
         return output

@@ -10,10 +10,6 @@ model = dict(
         text_categories=59,
         text_embeddings_path='pretrain/context_ViT16_clip_text.pth',
         clip_unlabeled_cats=suppress_labels,
-        # num_vote=1,
-        # vote_thresh=1.0,
-        # cls_thresh=0.5,
-        # conf_thresh = 0.1,
     ),
 )
 

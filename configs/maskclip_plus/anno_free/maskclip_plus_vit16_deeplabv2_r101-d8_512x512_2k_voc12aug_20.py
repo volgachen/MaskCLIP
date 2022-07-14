@@ -3,15 +3,6 @@ _base_ = [
     '../../_base_/default_runtime.py', '../../_base_/schedules/schedule_2k.py'
 ]
 
-model = dict(
-    decode_head=dict(
-        # num_vote=1,
-        # vote_thresh=1.0,
-        # cls_thresh=0.5,
-        # conf_thresh = 0.1,
-    ),
-)
-
 find_unused_parameters=True
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)

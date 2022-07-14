@@ -9,8 +9,5 @@ model = dict(
         text_channels=512, 
         text_embeddings_path='pretrain/stuff_ViT16_clip_text.pth',
         visual_projs_path='pretrain/ViT16_clip_weights.pth',
-        # num_vote=1,
-        # vote_thresh=1.0,
-        # cls_thresh=0.5,
     ),
 )

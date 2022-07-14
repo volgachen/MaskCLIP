@@ -14,6 +14,5 @@ model = dict(
 )
 data = dict(
     samples_per_gpu=4,
-    # test=dict(img_dir=img_dir, split=f'{img_dir}.txt', data_name='batman_ext')
     test=dict(img_dir=img_dir, data_name='batman_ext')
 )

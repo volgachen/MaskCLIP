@@ -12,10 +12,8 @@ from .decode_head import BaseDecodeHead
 class MaskClipHead(BaseDecodeHead):
 
     def __init__(self, text_categories, text_channels, text_embeddings_path,
-                    visual_projs_path, vit=False, bg_thresh=0.,
-                    num_vote=0, vote_thresh=0., topk_text=0, 
-                    cls_thresh=0., attn_pooling=False, num_heads=32,
-                    **kwargs):
+                    visual_projs_path, vit=False, ks_thresh=0., pd_thresh=0.,
+                    attn_pooling=False, num_heads=32, **kwargs):
         super(MaskClipHead, self).__init__(**kwargs)
 
         self.text_categories = text_categories
@@ -40,13 +38,8 @@ class MaskClipHead(BaseDecodeHead):
             self.c_proj = nn.Conv2d(self.in_channels, text_channels, 1)
         self.load_visual_projs()
 
-        self.bg_thresh = bg_thresh
-        self.num_vote = num_vote
-        if not isinstance(vote_thresh, list):
-            vote_thresh = [vote_thresh] * num_vote
-        self.vote_thresh = vote_thresh
-        self.topk_text = topk_text
-        self.cls_thresh = cls_thresh
+        self.ks_thresh = ks_thresh
+        self.pd_thresh = pd_thresh
         self.attn_pooling = attn_pooling
         self.num_heads = num_heads
 
@@ -123,7 +116,7 @@ class MaskClipHead(BaseDecodeHead):
                 feat = self.c_proj(v)
         output = self.cls_seg(feat)
         if not self.training:
-            output = self.refine_output(output, k , cls_token)
+            output = self.refine_output(output, k)
 
         return output
 
@@ -133,78 +126,33 @@ class MaskClipHead(BaseDecodeHead):
         
         return output
 
-    def refine_output(self, output, k, cls_token):
-        output2logits = False
-
-        if self.topk_text > 0:
-            assert cls_token is not None, 'Please set `output_cls_token=True` in the backbone config.'
-            cls_pred = cls_token @ self.text_embeddings.t()
-            _, selected_cls = cls_pred.topk(self.topk_text, dim=1)
-            N, C, H, W = output.shape
-            selected_cls = selected_cls[:, :, None, None].expand(-1, -1, H, W)
-            zeros = output.new_full((N, C, H, W), -100)
-            zeros[selected_cls] = output[selected_cls]
-            output = zeros
-        elif self.cls_thresh > 0:
+    def refine_output(self, output, k):
+        if self.pd_thresh > 0:
             N, C, H, W = output.shape
             _output = F.softmax(output*100, dim=1)
             max_cls_conf = _output.view(N, C, -1).max(dim=-1)[0]
-            selected_cls = (max_cls_conf < self.cls_thresh)[:, :, None, None].expand(N, C, H, W)
+            selected_cls = (max_cls_conf < self.pd_thresh)[:, :, None, None].expand(N, C, H, W)
             output[selected_cls] = -100
 
-        if k is not None and self.num_vote > 0:
-            if not output2logits:
-                output = F.softmax(output*100, dim=1)
-                output2logits = True
+        if k is not None and self.ks_thresh > 0:
+            output = F.softmax(output*100, dim=1)
             N, C, H, W = output.shape
             output = output.view(N, C, -1).transpose(-2, -1)
             # softmax
-            # attn = k @ k.transpose(-2, -1)
-            # attn = F.softmax(attn, dim=-1)
+            # weight = k @ k.transpose(-2, -1)
+            # weight = F.softmax(weight, dim=-1)
             # L2 distance
             k = F.normalize(k, p=2)
-            attn = k @ k.transpose(-2, -1)
+            weight = k @ k.transpose(-2, -1)
 
-            for i in range(self.num_vote):
-                if len(self.vote_thresh):
-                    # mask the unconfident
-                    # masked_attn = attn.clone()
-                    # selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.vote_thresh[i])
-                    # _selected_pos = selected_pos.expand(-1, -1, attn.shape[2])
-                    # masked_attn[_selected_pos] = 0
-                    # masked_attn[:, range(H*W), range(H*W)] = attn[:, range(H*W), range(H*W)]
-                    
-                    # KNN
-                    # knn = masked_attn.topk(5, dim=-1)[1]
-                    # vote_output = output.view(-1, C)[knn.view(-1, 5)]
-                    # vote_output = vote_output.mean(dim=-2)
-                    # vote_output = vote_output.view(N, -1, C)
-                    
-                    # mask the unconfident
-                    # vote_output = masked_attn @ output
+            selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.ks_thresh)
+            selected_pos = selected_pos.expand(-1, -1, C)
 
-                    vote_output = attn @ output
-
-                    selected_pos = (output.max(dim=-1, keepdim=True)[0] < self.vote_thresh[i])
-                    _selected_pos = selected_pos.expand(-1, -1, C)
-                    output[_selected_pos] = vote_output[_selected_pos]
-                else:
-                    output = attn @ output
+            weighted_output = weight @ output
+            output[selected_pos] = weighted_output[selected_pos]
             output = output.transpose(-2, -1).view(N, C, H, W)
-
-        bg_output = None
-        if self.text_categories > self.num_classes:
-            bg_output, _ = torch.max(output[:, self.num_classes:], dim=1, keepdim=True)
-        elif self.bg_thresh > 0:
-            if not output2logits:
-                output = F.softmax(output*100, dim=1)
-                output2logits = True
-            N, C, H, W = output.shape
-            bg_output = output.new_full((N, 1, H, W), self.bg_thresh)
-        if bg_output is not None:
-            output = torch.cat([bg_output, output[:, :self.num_classes]], dim=1)
 
         return output
 
-    # def forward_train(self, inputs, img_metas, gt_semantic_seg, train_cfg):
-    #     raise RuntimeError('MaskClip is not trainable. Try MaskClip+ instead.')
+    def forward_train(self, inputs, img_metas, gt_semantic_seg, train_cfg):
+        raise RuntimeError('MaskClip is not trainable. Try MaskClip+ instead.')
