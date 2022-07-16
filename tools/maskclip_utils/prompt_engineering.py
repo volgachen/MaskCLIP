@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import clip
-from tqdm import tqdm
 import argparse
 
 cityscapes_classes = ["road", "sidewalk", "building", "wall", "fence", "pole", "traffic light", "traffic sign", "vegetation", "terrain", "sky", "person", "rider", "car", "truck", "bus", "train", "motorcycle", "bicycle"]

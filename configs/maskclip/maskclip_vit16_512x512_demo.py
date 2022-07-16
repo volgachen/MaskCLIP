@@ -3,7 +3,6 @@ _base_ = [
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_20k.py'
 ]
 model = dict(
-    pretrained='../pretrain/ViT16_clip_visual.pth',
     decode_head=dict(
         num_classes=0,
         text_categories=0, 

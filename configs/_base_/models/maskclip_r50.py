@@ -2,7 +2,6 @@
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 model = dict(
     type='EncoderDecoder',
-    pretrained='pretrain/RN50_clip_visual.pth',
     backbone=dict(
         type='ResNetClip',
         depth=50,

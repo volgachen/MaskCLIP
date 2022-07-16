@@ -2,7 +2,6 @@
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 model = dict(
     type='EncoderDecoder',
-    pretrained='pretrain/ViT16_clip_visual.pth',
     backbone=dict(
         type='VisionTransformer',
         img_size=(224, 224),

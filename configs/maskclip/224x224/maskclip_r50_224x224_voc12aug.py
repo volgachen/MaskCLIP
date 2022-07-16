@@ -6,12 +6,8 @@ model = dict(
     decode_head=dict(
         num_classes=20,
         text_categories=20,
-        # text_categories=60,
-        # text_categories=460,
         text_channels=1024, 
         text_embeddings_path='pretrain/voc_RN50_clip_text.pth',
-        # text_embeddings_path='pretrain/voc_context_RN50_clip_text.pth',
-        # text_embeddings_path='pretrain/voc_acontext_RN50_clip_text.pth',
         visual_projs_path='pretrain/RN50_clip_weights.pth',
         conf_thresh=0.7,
     ),

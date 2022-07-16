@@ -1,7 +1,6 @@
 _base_ = './maskclip_r50_480x480_pascal_context_59.py'
 
 model = dict(
-    pretrained='pretrain/RN50x16_clip_visual.pth',
     backbone=dict(
         stem_channels=96,
         base_channels=96,

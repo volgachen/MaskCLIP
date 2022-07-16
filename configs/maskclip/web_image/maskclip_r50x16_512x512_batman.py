@@ -5,7 +5,6 @@ _base_ = [
 img_dir = 'batman'
 num_class = 7
 model = dict(
-    pretrained='pretrain/RN50x16_clip_visual.pth',
     backbone=dict(
         stem_channels=96,
         base_channels=96,
