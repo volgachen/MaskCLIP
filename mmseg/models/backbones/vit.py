@@ -465,7 +465,6 @@ class VisionTransformer(BaseModule):
 
     def train(self, mode=True):
         super(VisionTransformer, self).train(mode)
-        self._freeze()
         if mode and self.norm_eval:
             for m in self.modules():
                 if isinstance(m, nn.LayerNorm):

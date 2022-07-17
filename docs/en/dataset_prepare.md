@@ -1,10 +1,10 @@
 ## Prepare datasets
 
-It is recommended to symlink the dataset root to `$MMSEGMENTATION/data`.
+It is recommended to symlink the dataset root to `$MASKCLIP/data`.
 If your folder structure is different, you may need to change the corresponding paths in config files.
 
 ```none
-mmsegmentation
+maskclip
 ├── mmseg
 ├── tools
 ├── configs
