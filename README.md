@@ -1,4 +1,4 @@
-# Extract Free Dense Labels from CLIP
+# Extract Free Dense Labels from CLIP [[Project Page](https://www.mmlab-ntu.com/project/maskclip/)]
 ```
         ███╗   ███╗ █████╗ ███████╗██╗  ██╗ ██████╗██╗     ██╗██████╗
         ████╗ ████║██╔══██╗██╔════╝██║ ██╔╝██╔════╝██║     ██║██╔══██╗
