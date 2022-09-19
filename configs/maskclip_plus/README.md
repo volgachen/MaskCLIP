@@ -8,48 +8,50 @@ Contrastive Language-Image Pre-training (CLIP) has made a remarkable breakthroug
 
 #### Pascal VOC 2012 + Aug (w/o Background)
 
-| Method     | CLIP Model | Target Model          | Crop Size | Lr schd | mIoU | config                                                                               |
-| ---------- | ---------- | --------------------- | --------- | --------|----: | -------------------------------------------------------------------------------------|
-| MaskCLIP+ | R-50       | DeepLabv2-R-101-d8    | 512x512   | 2000    | 58.4 | [config](anno_free/maskclip_plus_r50_deeplabv2_r101-d8_512x512_2k_voc12aug_20.py)   |
-| MaskCLIP+ | R-50x16    | DeepLabv2-R-101-d8    | 512x512   | 2000    | 67.5 | [config](anno_free/maskclip_plus_r50x16_deeplabv2_r101-d8_512x512_2k_voc12aug_20.py)|
+| Method    | CLIP Model | Target Model          | Crop Size | Lr schd | mIoU  | config                                                                               | model                      |
+| --------- | ---------- | --------------------- | --------- | --------|------ | -------------------------------------------------------------------------------------| -------------------------- |
+| MaskCLIP+ | R-50       | DeepLabv2-R-101-d8    | 512x512   | 2000    | 58.0  | [config](anno_free/maskclip_plus_r50_deeplabv2_r101-d8_512x512_2k_voc12aug_20.py)    | [OneDrive](https://entuedu-my.sharepoint.com/:u:/g/personal/chong033_e_ntu_edu_sg/EeNt1u1qRX1GjhoCMIpxrUQBpQImYcYj31jeu3ID2Ry8BQ?e=QkS9ZA) |
+| MaskCLIP+ | R-50x16    | DeepLabv2-R-101-d8    | 512x512   | 2000    | 67.5  | [config](anno_free/maskclip_plus_r50x16_deeplabv2_r101-d8_512x512_2k_voc12aug_20.py) | [OneDrive](https://entuedu-my.sharepoint.com/:u:/g/personal/chong033_e_ntu_edu_sg/EQ6RN438ldlFq387xw4CpjUB78XydfMzsNVI9xp5B4CX6Q?e=OBmIWa) |
 
 
 #### Pascal Context (w/o Background)
 
-| Method     | CLIP Model | Target Model          | Crop Size | Lr schd | mIoU | config                                                                                     |
-| ---------- | ---------- | --------------------- | --------- | --------|----: | -------------------------------------------------------------------------------------------|
-| MaskCLIP+ | R-50       | DeepLabv2-R-101-d8    | 480x480   | 4000    | 23.9 | [config](anno_free/maskclip_plus_r50_deeplabv2_r101-d8_480x480_4k_pascal_context_59.py)   |
-| MaskCLIP+ | R-50x16    | DeepLabv2-R-101-d8    | 480x480   | 4000    | 25.1 | [config](anno_free/maskclip_plus_r50x16_deeplabv2_r101-d8_480x480_4k_pascal_context_59.py)|
-| MaskCLIP+ | ViT-B/16   | DeepLabv2-R-101-d8    | 480x480   | 4000    | 31.1 | [config](anno_free/maskclip_plus_vit16_deeplabv2_r101-d8_480x480_4k_pascal_context_59.py)|
+| Method    | CLIP Model | Target Model          | Crop Size | Lr schd | mIoU  | config                                                                                     | model                      |
+| --------- | ---------- | --------------------- | --------- | --------|------ | -------------------------------------------------------------------------------------------| -------------------------- |
+| MaskCLIP+ | R-50       | DeepLabv2-R-101-d8    | 480x480   | 4000    | 23.9  | [config](anno_free/maskclip_plus_r50_deeplabv2_r101-d8_480x480_4k_pascal_context_59.py)    | [OneDrive](https://entuedu-my.sharepoint.com/:u:/g/personal/chong033_e_ntu_edu_sg/EYEJP_N9TxRDpM-vm6LPKXYBBI4CYVgfoAw13Pvyce6K4A?e=I7Trta) |
+| MaskCLIP+ | R-50x16    | DeepLabv2-R-101-d8    | 480x480   | 4000    | 25.2  | [config](anno_free/maskclip_plus_r50x16_deeplabv2_r101-d8_480x480_4k_pascal_context_59.py) | [OneDrive](https://entuedu-my.sharepoint.com/:u:/g/personal/chong033_e_ntu_edu_sg/ETLllAVo0r1MvXAg-tutcWMB63cIqnFInoZIyzsZla0pgA?e=A7v9TZ) |
+| MaskCLIP+ | ViT-B/16   | DeepLabv2-R-101-d8    | 480x480   | 4000    | 31.1  | [config](anno_free/maskclip_plus_vit16_deeplabv2_r101-d8_480x480_4k_pascal_context_59.py)  | [OneDrive](https://entuedu-my.sharepoint.com/:u:/g/personal/chong033_e_ntu_edu_sg/EQziC4NIOfBEjuPIWdLA5H8BDmmJEIP7KGgRKMVdTjNCGg?e=HuI9WQ) |
 
 
 #### COCO-Stuff 164k
 
-| Method     | CLIP Model | Target Model          | Crop Size | Lr schd | mIoU | config                                                                                  |
-| ---------- | ---------- | --------------------- | --------- | --------|----: | ----------------------------------------------------------------------------------------|
-| MaskCLIP+ | R-50       | DeepLabv2-R-101-d8    | 512x512   | 8000    | 13.6 | [config](anno_free/maskclip_plus_r50_deeplabv2_r101-d8_512x512_8k_coco-stuff164k.py)   |
-| MaskCLIP+ | R-50x16    | DeepLabv2-R-101-d8    | 512x512   | 8000    | 17.6 | [config](anno_free/maskclip_plus_r50x16_deeplabv2_r101-d8_512x512_8k_coco-stuff164k.py)|
-| MaskCLIP+ | ViT-B/16   | DeepLabv2-R-101-d8    | 512x512   | 8000    | 18.0 | [config](anno_free/maskclip_plus_vit16_deeplabv2_r101-d8_512x512_8k_coco-stuff164k.py)|
+| Method    | CLIP Model | Target Model          | Crop Size | Lr schd | mIoU  | config                                                                                  | model                      |
+| --------- | ---------- | --------------------- | --------- | --------|------ | ----------------------------------------------------------------------------------------| -------------------------- |
+| MaskCLIP+ | R-50       | DeepLabv2-R-101-d8    | 512x512   | 8000    | 13.8* | [config](anno_free/maskclip_plus_r50_deeplabv2_r101-d8_512x512_8k_coco-stuff164k.py)    | [OneDrive](https://entuedu-my.sharepoint.com/:u:/g/personal/chong033_e_ntu_edu_sg/EQNexm9L3HRMs-LY9oTn9owBUnQtyXrOa1WzCd0UhVtD6Q?e=SP0KT7) |
+| MaskCLIP+ | R-50x16    | DeepLabv2-R-101-d8    | 512x512   | 8000    | 17.3  | [config](anno_free/maskclip_plus_r50x16_deeplabv2_r101-d8_512x512_8k_coco-stuff164k.py) | [OneDrive](https://entuedu-my.sharepoint.com/:u:/g/personal/chong033_e_ntu_edu_sg/EXaSNB5f5JBCqSL8-yYIzbcBdjTFQ1bxHWVMCUlVQd2PZw?e=cfYb6Q) |
+| MaskCLIP+ | ViT-B/16   | DeepLabv2-R-101-d8    | 512x512   | 8000    | 18.0  | [config](anno_free/maskclip_plus_vit16_deeplabv2_r101-d8_512x512_8k_coco-stuff164k.py)  | [OneDrive](https://entuedu-my.sharepoint.com/:u:/g/personal/chong033_e_ntu_edu_sg/EZSrnPaNFwNNqpECYCkgpg4BEjN782MUD7ZUEPXFWSTEXA?e=mOaseS) |
 
 
 ## Results and models of zero-shot segmentation
 
 #### Pascal VOC 2012 + Aug (w/o Background)
 
-| Method     | CLIP Model | Target Model          | Crop Size | Lr schd | mIoU | config                                                                                |
-| ---------- | ---------- | --------------------- | --------- | --------|----: | --------------------------------------------------------------------------------------|
-| MaskCLIP+ | R-50       | DeepLabv2-R-101-d8    | 512x512   | 20000   | 88.1 | [config](zero_shot/maskclip_plus_r50_deeplabv2_r101-d8_512x512_20k_voc12aug_20.py)   |
+| Method    | CLIP Model | Target Model          | Crop Size | Lr schd | mIoU  | config                                                                                | model                      |
+| ----------| ---------- | --------------------- | --------- | --------|------ | --------------------------------------------------------------------------------------| -------------------------- |
+| MaskCLIP+ | R-50       | DeepLabv2-R-101-d8    | 512x512   | 20000   | 87.8* | [config](zero_shot/maskclip_plus_r50_deeplabv2_r101-d8_512x512_20k_voc12aug_20.py)    | [OneDrive](https://entuedu-my.sharepoint.com/:u:/g/personal/chong033_e_ntu_edu_sg/EUd1jZwPCrxPugbIqC_fSYIBSOlu8nkVGmKq0vEB45l1Bw?e=oU5mgi) |
 
 
 #### Pascal Context
 
-| Method     | CLIP Model | Target Model           | Crop Size | Lr schd | mIoU | config                                                                                      |
-| ---------- | ---------- | ---------------------- | --------- | --------|----: | --------------------------------------------------------------------------------------------|
-| MaskCLIP+ | R-50       | DeepLabv3+-R-101-d8    | 480x480   | 40000   | 48.1 | [config](zero_shot/maskclip_plus_r50_deeplabv2_r101-d8_480x480_40k_pascal_context_59.py)   |
+| Method    | CLIP Model | Target Model           | Crop Size | Lr schd | mIoU  | config                                                                                      | model                      |
+| --------- | ---------- | ---------------------- | --------- | --------|------ | --------------------------------------------------------------------------------------------| -------------------------- |
+| MaskCLIP+ | R-50       | DeepLabv3+-R-101-d8    | 480x480   | 40000   | 48.4* | [config](zero_shot/maskclip_plus_r50_deeplabv3plus_r101-d8_480x480_40k_pascal_context.py)   | [OneDrive](https://entuedu-my.sharepoint.com/:u:/g/personal/chong033_e_ntu_edu_sg/EQXfvmOi75BOoOfVWmXb-EABi5Dmk7rW8q8NWR_OqyRuGg?e=UYDNhG) |
 
 
 #### COCO-Stuff 164k
 
-| Method     | CLIP Model | Target Model          | Crop Size | Lr schd | mIoU | config                                                                                   |
-| ---------- | ---------- | --------------------- | --------- | --------|----: | -----------------------------------------------------------------------------------------|
-| MaskCLIP+ | R-50       | DeepLabv2-R-101-d8    | 512x512   | 80000   | 39.6 | [config](zero_shot/maskclip_plus_r50_deeplabv2_r101-d8_512x512_80k_coco-stuff164k.py)   |
+| Method    | CLIP Model | Target Model          | Crop Size | Lr schd | mIoU  | config                                                                                   | model                      |
+| --------- | ---------- | --------------------- | --------- | --------|------ | -----------------------------------------------------------------------------------------| -------------------------- |
+| MaskCLIP+ | R-50       | DeepLabv2-R-101-d8    | 512x512   | 80000   | 39.7* | [config](zero_shot/maskclip_plus_r50_deeplabv2_r101-d8_512x512_80k_coco-stuff164k.py)    | [OneDrive](https://entuedu-my.sharepoint.com/:u:/g/personal/chong033_e_ntu_edu_sg/EYMMV4OVUTpPu4yIznwcX2IBPPaTxFi6Dhsm8aDe7XVrzw?e=t0Sxc8) |
+
+\* The numbers are slightly different than those reported in the paper.
