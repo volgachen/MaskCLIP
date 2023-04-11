@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 from mmcv.utils import print_log
 from mmseg.utils import get_root_logger
-from ..builder import HEADS
+from mmseg.models.builder import HEADS
 from .decode_head import BaseDecodeHead
 
 @HEADS.register_module()

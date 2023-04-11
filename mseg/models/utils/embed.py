@@ -1,12 +1,32 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import math
 from typing import Sequence
+import collections
+from itertools import repeat
 
 import torch.nn as nn
 import torch.nn.functional as F
 from mmcv.cnn import build_conv_layer, build_norm_layer
 from mmcv.runner.base_module import BaseModule
-from mmcv.utils import to_2tuple
+
+
+## https://github.com/open-mmlab/mmcv/blob/master/mmcv/utils/misc.py
+# From PyTorch internals
+def _ntuple(n):
+
+    def parse(x):
+        if isinstance(x, collections.abc.Iterable):
+            return x
+        return tuple(repeat(x, n))
+
+    return parse
+
+
+to_1tuple = _ntuple(1)
+to_2tuple = _ntuple(2)
+to_3tuple = _ntuple(3)
+to_4tuple = _ntuple(4)
+to_ntuple = _ntuple
 
 
 class AdaptivePadding(nn.Module):

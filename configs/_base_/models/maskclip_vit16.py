@@ -3,7 +3,7 @@ norm_cfg = dict(type='SyncBN', requires_grad=True)
 model = dict(
     type='EncoderDecoder',
     backbone=dict(
-        type='VisionTransformer',
+        type='MCVisionTransformer',
         img_size=(224, 224),
         patch_size=16,
         patch_bias=False,

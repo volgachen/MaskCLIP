@@ -1,4 +1,4 @@
-from .builder import DATASETS
+from mmseg.datasets.builder import DATASETS
 from .custom import CustomDataset
 
 

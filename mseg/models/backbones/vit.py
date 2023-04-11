@@ -16,7 +16,7 @@ import torch.nn.functional as F
 
 from mmseg.ops import resize
 from mmseg.utils import get_root_logger
-from ..builder import BACKBONES
+from mmseg.models.builder import BACKBONES
 from ..utils import PatchEmbed
 
 
@@ -109,7 +109,7 @@ class TransformerEncoderLayer(BaseModule):
 
 
 @BACKBONES.register_module()
-class VisionTransformer(BaseModule):
+class MCVisionTransformer(BaseModule):
     """Vision Transformer.
 
     This backbone is the implementation of `An Image is Worth 16x16 Words:
@@ -188,7 +188,7 @@ class VisionTransformer(BaseModule):
                  with_cp=False,
                  pretrained=None,
                  init_cfg=None):
-        super(VisionTransformer, self).__init__(init_cfg=init_cfg)
+        super(MCVisionTransformer, self).__init__(init_cfg=init_cfg)
 
         if isinstance(img_size, int):
             img_size = to_2tuple(img_size)
@@ -329,7 +329,7 @@ class VisionTransformer(BaseModule):
 
             print(self.load_state_dict(state_dict, False))
         elif self.init_cfg is not None:
-            super(VisionTransformer, self).init_weights()
+            super(MCVisionTransformer, self).init_weights()
         else:
             # We only implement the 'jax_impl' initialization implemented at
             # https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py#L353  # noqa: E501
@@ -464,7 +464,7 @@ class VisionTransformer(BaseModule):
         return tuple(outs)
 
     def train(self, mode=True):
-        super(VisionTransformer, self).train(mode)
+        super(MCVisionTransformer, self).train(mode)
         if mode and self.norm_eval:
             for m in self.modules():
                 if isinstance(m, nn.LayerNorm):

@@ -7,7 +7,6 @@ from mmcv.utils import deprecated_api_warning, is_tuple_of
 from numpy import random
 
 from ..builder import PIPELINES
-from .corruptions import corrupt
 
 
 @PIPELINES.register_module()
